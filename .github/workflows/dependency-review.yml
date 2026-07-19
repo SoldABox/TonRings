@@ -5,20 +5,32 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: dependency-review-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   review:
     name: Review dependency changes
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Review dependencies
-        uses: actions/dependency-review-action@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          fail-on-severity: high
-          comment-summary-in-pr: always
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install declared dependencies
+        run: npm install --no-fund
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate dependency tree
+        run: npm ls --all
