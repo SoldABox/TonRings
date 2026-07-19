@@ -20,16 +20,34 @@ export interface SignatureVerifier {
   }): Promise<boolean>;
 }
 
+export type CreateEnchantmentResult =
+  | 'created'
+  | 'nonce_exists'
+  | 'ring_exists'
+  | 'diamond_exists';
+
 export interface EnchantmentRepository {
-  hasNonce(nonce: string): Promise<boolean>;
-  hasActiveRingBinding(ringAddress: string): Promise<boolean>;
-  hasActiveDiamondBinding(diamondAddress: string): Promise<boolean>;
-  save(record: EnchantmentRecord): Promise<void>;
+  /**
+   * Persists the record atomically. Implementations must enforce unique active
+   * bindings for nonce, ringAddress and diamondAddress in the same transaction.
+   */
+  create(record: EnchantmentRecord): Promise<CreateEnchantmentResult>;
 }
 
 export interface BindInput {
   request: EnchantmentRequest;
   signature: string;
+}
+
+function throwCreateConflict(result: Exclude<CreateEnchantmentResult, 'created'>): never {
+  switch (result) {
+    case 'nonce_exists':
+      throw new Error('nonce already used');
+    case 'ring_exists':
+      throw new Error('ring already enchanted');
+    case 'diamond_exists':
+      throw new Error('diamond already bound');
+  }
 }
 
 export class EnchantmentService {
@@ -43,16 +61,6 @@ export class EnchantmentService {
   async bind(input: BindInput): Promise<EnchantmentRecord> {
     const request = EnchantmentRequestSchema.parse(input.request);
     assertFreshRequest(request);
-
-    if (await this.repository.hasNonce(request.nonce)) {
-      throw new Error('nonce already used');
-    }
-    if (await this.repository.hasActiveRingBinding(request.ringAddress)) {
-      throw new Error('ring already enchanted');
-    }
-    if (await this.repository.hasActiveDiamondBinding(request.diamondAddress)) {
-      throw new Error('diamond already bound');
-    }
 
     const [ownsRing, ownsDiamond] = await Promise.all([
       verifyRingOwnership(
@@ -90,7 +98,9 @@ export class EnchantmentService {
       status: 'active',
     };
 
-    await this.repository.save(record);
+    const result = await this.repository.create(record);
+    if (result !== 'created') throwCreateConflict(result);
+
     return record;
   }
 }
