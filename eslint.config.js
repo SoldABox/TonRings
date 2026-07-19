@@ -23,6 +23,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.ts'],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
