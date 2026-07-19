@@ -14,7 +14,7 @@ interface TonCenterNftResponse {
 
 export interface TonCenterNftProviderOptions {
   baseUrl?: string;
-  apiKey?: string;
+  apiKey?: string | undefined;
   fetchImpl?: typeof fetch;
 }
 
