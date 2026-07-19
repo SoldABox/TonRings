@@ -11,7 +11,6 @@ const EnvSchema = z.object({
   TON_DIAMONDS_COLLECTION: z.string().min(10),
   RING_COLLECTION_ADDRESS: z.string().min(10),
   DATABASE_URL: z.string().url(),
-  SESSION_SECRET: z.string().min(32),
   PINATA_JWT: z.string().optional(),
   IPFS_GATEWAY: z.string().url().default('https://ipfs.io/ipfs/'),
   COLLECTION_SIZE: z.coerce.number().int().min(1).max(10000).default(256),
