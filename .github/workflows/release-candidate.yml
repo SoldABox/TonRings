@@ -44,7 +44,7 @@ jobs:
       - name: Create release bundle
         run: |
           mkdir -p release
-          cp -R dist migrations docs release/
+          cp -R dist public migrations docs release/
           cp package.json Dockerfile .dockerignore .env.example tonconnect-manifest.example.json README.md SECURITY.md CHANGELOG.md LICENSE release/
           tar -czf tonrings-${{ inputs.label }}-${{ github.sha }}.tar.gz -C release .
           sha256sum tonrings-${{ inputs.label }}-${{ github.sha }}.tar.gz > tonrings-${{ inputs.label }}-${{ github.sha }}.sha256
