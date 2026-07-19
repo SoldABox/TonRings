@@ -18,7 +18,7 @@ export type EnchantmentRequest = z.infer<typeof EnchantmentRequestSchema>;
 
 export const EnchantmentRecordSchema = EnchantmentRequestSchema.extend({
   id: z.string().uuid(),
-  collectionAddress: z.literal(TON_DIAMONDS_COLLECTION),
+  collectionAddress: z.string().min(10),
   signature: z.string().min(32),
   createdAt: z.string().datetime(),
   status: z.enum(['active', 'revoked']),
