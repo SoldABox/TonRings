@@ -202,8 +202,9 @@ app.post('/api/enchantments/revoke', async (request, reply) => {
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
 
-  if (error instanceof z.ZodError || error.message === 'invalid TON address') {
+  if (error instanceof z.ZodError || errorMessage === 'invalid TON address') {
     void reply.code(400).send({ error: 'invalid request' });
     return;
   }
@@ -213,8 +214,8 @@ app.setErrorHandler((error, _request, reply) => {
     'ring already enchanted',
     'diamond already bound',
   ]);
-  if (conflicts.has(error.message)) {
-    void reply.code(409).send({ error: error.message });
+  if (conflicts.has(errorMessage)) {
+    void reply.code(409).send({ error: errorMessage });
     return;
   }
 
@@ -223,8 +224,8 @@ app.setErrorHandler((error, _request, reply) => {
     'diamond ownership verification failed',
     'signature verification failed',
   ]);
-  if (forbidden.has(error.message)) {
-    void reply.code(403).send({ error: error.message });
+  if (forbidden.has(errorMessage)) {
+    void reply.code(403).send({ error: errorMessage });
     return;
   }
 
@@ -238,12 +239,12 @@ app.setErrorHandler((error, _request, reply) => {
     'walletStateInit does not match address',
     'could not resolve wallet public key',
   ]);
-  if (authenticationErrors.has(error.message)) {
+  if (authenticationErrors.has(errorMessage)) {
     void reply.code(401).send({ error: 'wallet proof verification failed' });
     return;
   }
 
-  if (error.message.startsWith('TON Center')) {
+  if (errorMessage.startsWith('TON Center')) {
     void reply.code(503).send({ error: 'TON verification service unavailable' });
     return;
   }
