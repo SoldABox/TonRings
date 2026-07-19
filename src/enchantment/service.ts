@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { assertFreshRequest, buildEnchantmentMessage } from './message.js';
 import {
   EnchantmentRequestSchema,
-  TON_DIAMONDS_COLLECTION,
   type EnchantmentRecord,
   type EnchantmentRequest,
 } from './schema.js';
@@ -27,10 +26,6 @@ export type CreateEnchantmentResult =
   | 'diamond_exists';
 
 export interface EnchantmentRepository {
-  /**
-   * Persists the record atomically. Implementations must enforce unique active
-   * bindings for nonce, ringAddress and diamondAddress in the same transaction.
-   */
   create(record: EnchantmentRecord): Promise<CreateEnchantmentResult>;
 }
 
@@ -56,6 +51,7 @@ export class EnchantmentService {
     private readonly signatures: SignatureVerifier,
     private readonly repository: EnchantmentRepository,
     private readonly ringCollectionAddress: string,
+    private readonly diamondCollectionAddress: string,
   ) {}
 
   async bind(input: BindInput): Promise<EnchantmentRecord> {
@@ -75,6 +71,7 @@ export class EnchantmentService {
         request.diamondAddress,
         request.diamondIndex,
         request.ownerAddress,
+        this.diamondCollectionAddress,
       ),
     ]);
 
@@ -92,7 +89,7 @@ export class EnchantmentService {
     const record: EnchantmentRecord = {
       ...request,
       id: randomUUID(),
-      collectionAddress: TON_DIAMONDS_COLLECTION,
+      collectionAddress: this.diamondCollectionAddress,
       signature: input.signature,
       createdAt: new Date().toISOString(),
       status: 'active',
@@ -100,7 +97,6 @@ export class EnchantmentService {
 
     const result = await this.repository.create(record);
     if (result !== 'created') throwCreateConflict(result);
-
     return record;
   }
 }
