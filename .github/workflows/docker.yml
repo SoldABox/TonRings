@@ -1,0 +1,50 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package.json
+      - tsconfig.json
+      - src/**
+      - scripts/**
+      - migrations/**
+      - .github/workflows/docker.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - package.json
+      - tsconfig.json
+      - src/**
+      - scripts/**
+      - migrations/**
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build production image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build --pull --tag tonrings:${{ github.sha }} .
+
+      - name: Inspect runtime image
+        run: |
+          docker image inspect tonrings:${{ github.sha }} >/dev/null
+          docker run --rm tonrings:${{ github.sha }} node --version
