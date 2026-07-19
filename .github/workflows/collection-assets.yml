@@ -69,9 +69,11 @@ jobs:
 
       - name: Verify deterministic regeneration
         run: |
-          sha256sum generated/manifest.json generated/report.json > /tmp/first.sha256
+          find generated/images generated/metadata -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/first.sha256
+          sha256sum generated/report.json generated/gallery.html >> /tmp/first.sha256
           npm run generate
-          sha256sum generated/manifest.json generated/report.json > /tmp/second.sha256
+          find generated/images generated/metadata -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/second.sha256
+          sha256sum generated/report.json generated/gallery.html >> /tmp/second.sha256
           diff -u /tmp/first.sha256 /tmp/second.sha256
 
       - name: Package generated elements
