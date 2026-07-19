@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -45,3 +45,25 @@ jobs:
 
       - name: Run tests with coverage
         run: npm test
+
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload compiled application
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ github.sha }}
+          path: |
+            dist/
+            migrations/
+            package.json
+            Dockerfile
+          if-no-files-found: error
+          retention-days: 14
