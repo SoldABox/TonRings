@@ -37,5 +37,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify source
-        run: npm run check
+      - name: Lint source
+        run: npm run lint
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run tests with coverage
+        run: npm test
