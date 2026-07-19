@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { EnchantmentService } from '../src/enchantment/service.js';
+import {
+  EnchantmentService,
+  type CreateEnchantmentResult,
+} from '../src/enchantment/service.js';
 import { TON_DIAMONDS_COLLECTION, type EnchantmentRecord } from '../src/enchantment/schema.js';
 import type { NftOwnershipProvider, NftSnapshot } from '../src/enchantment/ownership.js';
 
@@ -35,24 +38,22 @@ class Ownership implements NftOwnershipProvider {
 class Repository {
   records: EnchantmentRecord[] = [];
 
-  async hasNonce(nonce: string) {
-    return this.records.some((record) => record.nonce === nonce);
-  }
+  async create(record: EnchantmentRecord): Promise<CreateEnchantmentResult> {
+    if (this.records.some((stored) => stored.nonce === record.nonce)) return 'nonce_exists';
+    if (
+      this.records.some(
+        (stored) => stored.ringAddress === record.ringAddress && stored.status === 'active',
+      )
+    ) return 'ring_exists';
+    if (
+      this.records.some(
+        (stored) =>
+          stored.diamondAddress === record.diamondAddress && stored.status === 'active',
+      )
+    ) return 'diamond_exists';
 
-  async hasActiveRingBinding(address: string) {
-    return this.records.some(
-      (record) => record.ringAddress === address && record.status === 'active',
-    );
-  }
-
-  async hasActiveDiamondBinding(address: string) {
-    return this.records.some(
-      (record) => record.diamondAddress === address && record.status === 'active',
-    );
-  }
-
-  async save(record: EnchantmentRecord) {
     this.records.push(record);
+    return 'created';
   }
 }
 
@@ -111,7 +112,7 @@ describe('EnchantmentService', () => {
     ).rejects.toThrow('ring ownership verification failed');
   });
 
-  it('prevents replaying the same nonce', async () => {
+  it('prevents replaying the same nonce atomically', async () => {
     const repository = new Repository();
     const service = new EnchantmentService(
       ownership(),
@@ -128,37 +129,49 @@ describe('EnchantmentService', () => {
 
   it('rejects a ring that is already enchanted', async () => {
     const repository = new Repository();
+    repository.records.push({
+      ...request(),
+      id: randomUUID(),
+      collectionAddress: TON_DIAMONDS_COLLECTION,
+      signature: 'x'.repeat(64),
+      createdAt: new Date().toISOString(),
+      status: 'active',
+    });
     const service = new EnchantmentService(
       ownership(),
       { verify: async () => true },
       repository,
       ringCollection,
     );
-
-    await service.bind({ request: request(), signature: 'x'.repeat(64) });
-    const second = request();
-    second.diamondAddress = `0:${'66'.repeat(32)}`;
+    const next = request();
+    next.diamondAddress = `0:${'66'.repeat(32)}`;
 
     await expect(
-      service.bind({ request: second, signature: 'x'.repeat(64) }),
+      service.bind({ request: next, signature: 'x'.repeat(64) }),
     ).rejects.toThrow('ring already enchanted');
   });
 
   it('rejects a Diamond that is already bound', async () => {
     const repository = new Repository();
+    repository.records.push({
+      ...request(),
+      id: randomUUID(),
+      collectionAddress: TON_DIAMONDS_COLLECTION,
+      signature: 'x'.repeat(64),
+      createdAt: new Date().toISOString(),
+      status: 'active',
+    });
     const service = new EnchantmentService(
       ownership(),
       { verify: async () => true },
       repository,
       ringCollection,
     );
-
-    await service.bind({ request: request(), signature: 'x'.repeat(64) });
-    const second = request();
-    second.ringAddress = `0:${'77'.repeat(32)}`;
+    const next = request();
+    next.ringAddress = `0:${'77'.repeat(32)}`;
 
     await expect(
-      service.bind({ request: second, signature: 'x'.repeat(64) }),
+      service.bind({ request: next, signature: 'x'.repeat(64) }),
     ).rejects.toThrow('diamond already bound');
   });
 });
