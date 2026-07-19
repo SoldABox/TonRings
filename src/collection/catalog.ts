@@ -2,7 +2,7 @@ export interface WeightedTrait {
   id: string;
   label: string;
   weight: number;
-  colors: readonly string[];
+  colors: readonly [string, string, string];
   rarityBoost?: number;
 }
 
