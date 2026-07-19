@@ -3,6 +3,8 @@ import { TonCenterPublicKeyResolver } from '../src/ton/toncenterPublicKey.js';
 
 const wallet = `0:${'11'.repeat(32)}`;
 
+type FetchInput = string | URL | Request;
+
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -12,7 +14,7 @@ function response(body: unknown, status = 200): Response {
 
 describe('TonCenterPublicKeyResolver', () => {
   it('parses a v2 get_public_key result and preserves leading zeroes', async () => {
-    const fetchImpl = vi.fn(async () =>
+    const fetchImpl = vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
       response({
         ok: true,
         result: {
@@ -32,7 +34,9 @@ describe('TonCenterPublicKeyResolver', () => {
     expect(key?.subarray(30).toString('hex')).toBe('1234');
     expect(fetchImpl).toHaveBeenCalledOnce();
 
-    const [url, init] = fetchImpl.mock.calls[0] ?? [];
+    const firstCall = fetchImpl.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const [url, init] = firstCall ?? [];
     expect(url).toBe('https://toncenter.example/api/v2/runGetMethod');
     expect(init?.method).toBe('POST');
     expect((init?.headers as Record<string, string>)['X-API-Key']).toBe('test-key');
@@ -40,7 +44,7 @@ describe('TonCenterPublicKeyResolver', () => {
 
   it('returns null when the wallet getter exits unsuccessfully', async () => {
     const resolver = new TonCenterPublicKeyResolver({
-      fetchImpl: vi.fn(async () =>
+      fetchImpl: vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
         response({ ok: true, result: { exit_code: 11, stack: [] } }),
       ),
     });
@@ -50,7 +54,9 @@ describe('TonCenterPublicKeyResolver', () => {
 
   it('fails closed on upstream errors', async () => {
     const resolver = new TonCenterPublicKeyResolver({
-      fetchImpl: vi.fn(async () => response({ error: 'rate limited' }, 429)),
+      fetchImpl: vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
+        response({ error: 'rate limited' }, 429),
+      ),
     });
 
     await expect(resolver.resolve(wallet)).rejects.toThrow('status 429');
