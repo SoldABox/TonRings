@@ -1,8 +1,8 @@
 # API Reference
 
-Base URL in development: `http://localhost:3000`
+Development base URL: `http://localhost:3000`
 
-All JSON request bodies must use `Content-Type: application/json`.
+All JSON request bodies use `Content-Type: application/json`.
 
 ## Health
 
@@ -22,28 +22,116 @@ Confirms that the process is running.
 
 ### `GET /ready`
 
-Returns HTTP `200` only when launch-critical configuration is present. Returns HTTP `503` with a list of missing values otherwise.
+Returns HTTP `200` only when launch configuration and PostgreSQL are available. Otherwise it returns HTTP `503` and a list of missing dependencies.
 
 ```json
 {
   "ready": false,
-  "missing": ["RING_COLLECTION_ADDRESS"]
+  "missing": ["RING_COLLECTION_ADDRESS", "DATABASE"]
 }
 ```
 
-## Authentication nonce
+## Authentication flow
 
-### `POST /api/auth/nonce`
+### 1. `POST /api/auth/nonce`
 
-Issues a short-lived one-time nonce for wallet authentication.
+Issues a five-minute, single-use UUID nonce.
 
-The route is rate-limited more strictly than general API traffic.
+Example response:
+
+```json
+{
+  "nonce": "71052048-8e13-49b2-bb91-bc17d3f2943f",
+  "expiresAt": "2026-07-19T20:30:00.000Z"
+}
+```
+
+Pass `nonce` as the TonConnect `tonProof` payload.
+
+### 2. `POST /api/auth/verify`
+
+Validates the wallet's TonConnect proof and consumes the issued nonce.
+
+Request:
+
+```json
+{
+  "address": "0:...",
+  "walletStateInit": "base64-boc",
+  "proof": {
+    "timestamp": 1784492700,
+    "domain": {
+      "lengthBytes": 16,
+      "value": "app.example.com"
+    },
+    "payload": "71052048-8e13-49b2-bb91-bc17d3f2943f",
+    "signature": "base64-signature"
+  }
+}
+```
+
+Success:
+
+```json
+{
+  "token": "opaque-session-token",
+  "walletAddress": "0:...",
+  "expiresIn": 86400
+}
+```
+
+The token is returned once. The database stores only its SHA-256 hash.
+
+Possible responses:
+
+- `200` — verified and authenticated
+- `400` — malformed request
+- `401` — proof, public key, domain, timestamp, or nonce verification failed
+- `429` — rate limited
+
+## Create enchantment
+
+### `POST /api/enchantments/bind`
+
+Requires:
+
+```http
+Authorization: Bearer <session-token>
+```
+
+Request:
+
+```json
+{
+  "request": {
+    "ringAddress": "0:...",
+    "ringIndex": 1,
+    "diamondAddress": "0:...",
+    "diamondIndex": 42,
+    "ownerAddress": "0:...",
+    "nonce": "cf28e331-cd44-4eed-97ac-8c5517d73cf1",
+    "issuedAt": 1784492700,
+    "expiresAt": 1784493300
+  }
+}
+```
+
+The session wallet must match `ownerAddress`. The API re-checks current ownership of both NFTs and verifies both configured collection addresses before committing the record atomically.
+
+Possible responses:
+
+- `201` — binding created
+- `400` — malformed or invalid request window
+- `401` — missing or invalid session
+- `403` — session owner or NFT ownership mismatch
+- `409` — nonce, ring, or Diamond conflict
+- `429` — rate limited
 
 ## Lookup by ring
 
 ### `GET /api/enchantments/ring/:address`
 
-Returns the active enchantment for a ring or `null`.
+Returns the active enchantment or `null`.
 
 ```json
 {
@@ -55,17 +143,13 @@ Returns the active enchantment for a ring or `null`.
 
 ### `GET /api/enchantments/diamond/:address`
 
-Returns the active enchantment for a TON Diamond or `null`.
+Returns the active enchantment or `null`.
 
 ## Revoke enchantment
 
 ### `POST /api/enchantments/revoke`
 
 Requires an authenticated bearer session.
-
-```http
-Authorization: Bearer <session-token>
-```
 
 Request:
 
@@ -75,33 +159,27 @@ Request:
 }
 ```
 
-Responses:
+Possible responses:
 
 - `200` — binding revoked
 - `401` — session missing or invalid
-- `404` — binding not found or not owned by the session wallet
+- `404` — active binding not found or not owned by the session wallet
 
-## Planned launch-critical endpoints
+## Error policy
 
-### `POST /api/auth/verify`
-
-Will consume the nonce, validate TonConnect proof and issue a short-lived wallet session.
-
-### `POST /api/enchantments/bind`
-
-Will authenticate the wallet, validate both NFT ownership records and create the binding atomically.
-
-These endpoints must not be advertised as available until implementation and integration tests are complete.
-
-## Error handling
-
-Schema validation errors return HTTP `400` with a generic response:
+Schema validation errors return:
 
 ```json
 { "error": "invalid request" }
 ```
 
-Unexpected errors return HTTP `500` without exposing internal stack traces:
+Authentication failures return a generic response rather than exposing cryptographic details:
+
+```json
+{ "error": "wallet proof verification failed" }
+```
+
+Unexpected failures return:
 
 ```json
 { "error": "internal error" }
