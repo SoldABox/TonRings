@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { resolve } from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import staticFiles from '@fastify/static';
 import { Address } from '@ton/core';
 import { z } from 'zod';
 import { verifyTonProof } from './auth/tonProof.js';
@@ -61,6 +63,13 @@ function normalizeTonAddress(value: string): string {
 
 await app.register(cors, { origin: env.APP_ORIGIN, credentials: false });
 await app.register(rateLimit, { max: 60, timeWindow: '1 minute' });
+await app.register(staticFiles, {
+  root: resolve(process.cwd(), 'public'),
+  prefix: '/',
+  index: ['index.html'],
+  maxAge: '1h',
+  immutable: false,
+});
 
 app.get('/health', async () => ({
   ok: true,
