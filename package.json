@@ -1,6 +1,6 @@
 {
   "name": "ton-rings",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Automated ownership-gated TON Diamond enchantments for Golden Legacy Rings.",
@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "check": "npm run lint && npm run build && npm test",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate:prod": "node dist/scripts/migrate.js",
     "generate": "tsx scripts/generate-collection.ts",
     "upload:ipfs": "tsx scripts/upload-pinata.ts",
     "validate:launch": "tsx scripts/validate-launch.ts",
@@ -26,7 +27,6 @@
     "@fastify/rate-limit": "^10.3.0",
     "@ton/core": "^0.61.0",
     "fastify": "^5.4.0",
-    "jose": "^6.0.11",
     "postgres": "^3.4.7",
     "tweetnacl": "^1.0.3",
     "zod": "^3.25.0"
