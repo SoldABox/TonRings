@@ -1,0 +1,60 @@
+name: Release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      label:
+        description: Release candidate label
+        required: true
+        default: rc
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Verify and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify source
+        run: npm run check
+
+      - name: Build production image
+        run: docker build --tag tonrings:${{ github.sha }} .
+
+      - name: Create release bundle
+        run: |
+          mkdir -p release
+          cp -R dist migrations docs release/
+          cp package.json Dockerfile .dockerignore .env.example tonconnect-manifest.example.json README.md SECURITY.md CHANGELOG.md LICENSE release/
+          tar -czf tonrings-${{ inputs.label }}-${{ github.sha }}.tar.gz -C release .
+          sha256sum tonrings-${{ inputs.label }}-${{ github.sha }}.tar.gz > tonrings-${{ inputs.label }}-${{ github.sha }}.sha256
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: tonrings-${{ inputs.label }}-${{ github.sha }}
+          path: |
+            tonrings-${{ inputs.label }}-${{ github.sha }}.tar.gz
+            tonrings-${{ inputs.label }}-${{ github.sha }}.sha256
+          if-no-files-found: error
+          retention-days: 30
