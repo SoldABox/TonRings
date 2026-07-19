@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS enchantments (
   owner_address TEXT NOT NULL,
   signature TEXT NOT NULL,
   nonce UUID NOT NULL UNIQUE,
+  issued_at BIGINT NOT NULL,
+  expires_at BIGINT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('active', 'revoked')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   revoked_at TIMESTAMPTZ
