@@ -4,7 +4,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { Address } from '@ton/core';
 import { z } from 'zod';
-import { verifyTonProof, type TonProof } from './auth/tonProof.js';
+import { verifyTonProof } from './auth/tonProof.js';
 import { loadEnv } from './config/env.js';
 import { EnchantmentRequestSchema } from './enchantment/schema.js';
 import { EnchantmentService } from './enchantment/service.js';
@@ -12,6 +12,9 @@ import { sameAddress } from './enchantment/ownership.js';
 import { PostgresStore } from './persistence/postgres.js';
 import { TonCenterNftProvider } from './ton/toncenterNftProvider.js';
 import { TonCenterPublicKeyResolver } from './ton/toncenterPublicKey.js';
+
+const SERVICE_VERSION = '0.4.0';
+const SESSION_TTL_SECONDS = 86_400;
 
 const env = loadEnv();
 const app = Fastify({ logger: true, bodyLimit: 64 * 1024, trustProxy: true });
@@ -48,27 +51,36 @@ function bearerToken(authorization: string | undefined): string | null {
   return match?.[1]?.trim() || null;
 }
 
+function normalizeTonAddress(value: string): string {
+  try {
+    return Address.parse(value).toRawString();
+  } catch {
+    throw new Error('invalid TON address');
+  }
+}
+
 await app.register(cors, { origin: env.APP_ORIGIN, credentials: false });
 await app.register(rateLimit, { max: 60, timeWindow: '1 minute' });
 
-app.get('/health', async () => ({ ok: true, service: 'ton-rings', version: '0.3.0' }));
+app.get('/health', async () => ({
+  ok: true,
+  service: 'ton-rings',
+  version: SERVICE_VERSION,
+}));
 
 app.get('/ready', async (_request, reply) => {
   const missing = [
     env.TONCENTER_API_KEY ? null : 'TONCENTER_API_KEY',
-    env.PINATA_JWT ? null : 'PINATA_JWT',
     env.TON_DIAMONDS_COLLECTION.startsWith('REPLACE') ? 'TON_DIAMONDS_COLLECTION' : null,
     env.RING_COLLECTION_ADDRESS.startsWith('REPLACE') ? 'RING_COLLECTION_ADDRESS' : null,
   ].filter((value): value is string => Boolean(value));
 
-  let database = true;
   try {
     await store.sql`SELECT 1`;
   } catch {
-    database = false;
+    missing.push('DATABASE');
   }
 
-  if (!database) missing.push('DATABASE');
   return reply.code(missing.length ? 503 : 200).send({
     ready: missing.length === 0,
     missing,
@@ -78,21 +90,25 @@ app.get('/ready', async (_request, reply) => {
 app.post(
   '/api/auth/nonce',
   { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
-  async () => store.issueNonce(300),
+  async (_request, reply) => {
+    reply.header('cache-control', 'no-store');
+    return store.issueNonce(300);
+  },
 );
 
 app.post(
   '/api/auth/verify',
   { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
   async (request, reply) => {
+    reply.header('cache-control', 'no-store');
     const input = VerifyWalletSchema.parse(request.body);
-    const walletAddress = Address.parse(input.address).toRawString();
+    const walletAddress = normalizeTonAddress(input.address);
 
     await verifyTonProof(
       {
         address: walletAddress,
         walletStateInit: input.walletStateInit,
-        proof: input.proof as TonProof,
+        proof: input.proof,
         expectedDomain: env.TON_PROOF_DOMAIN,
         expectedPayload: input.proof.payload,
       },
@@ -103,8 +119,12 @@ app.post(
     if (!nonceConsumed) return reply.code(401).send({ error: 'invalid or reused nonce' });
 
     const token = randomBytes(32).toString('base64url');
-    await store.createSession(walletAddress, token);
-    return reply.code(200).send({ token, walletAddress, expiresIn: 86_400 });
+    await store.createSession(walletAddress, token, SESSION_TTL_SECONDS);
+    return reply.code(200).send({
+      token,
+      walletAddress,
+      expiresIn: SESSION_TTL_SECONDS,
+    });
   },
 );
 
@@ -112,6 +132,7 @@ app.post(
   '/api/enchantments/bind',
   { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
   async (request, reply) => {
+    reply.header('cache-control', 'no-store');
     const token = bearerToken(request.headers.authorization);
     if (!token) return reply.code(401).send({ error: 'missing bearer token' });
 
@@ -135,26 +156,36 @@ app.post(
       env.TON_DIAMONDS_COLLECTION,
     );
 
-    const enchantment = await service.bind({ request: body.request, signature: evidence });
+    const enchantment = await service.bind({
+      request: body.request,
+      signature: evidence,
+    });
     return reply.code(201).send({ enchantment });
   },
 );
 
 app.get('/api/enchantments/ring/:address', async request => {
   const params = z.object({ address: z.string().min(10) }).parse(request.params);
-  return { enchantment: await store.findActiveByRing(Address.parse(params.address).toRawString()) };
+  return {
+    enchantment: await store.findActiveByRing(normalizeTonAddress(params.address)),
+  };
 });
 
 app.get('/api/enchantments/diamond/:address', async request => {
   const params = z.object({ address: z.string().min(10) }).parse(request.params);
-  return { enchantment: await store.findActiveByDiamond(Address.parse(params.address).toRawString()) };
+  return {
+    enchantment: await store.findActiveByDiamond(normalizeTonAddress(params.address)),
+  };
 });
 
 app.post('/api/enchantments/revoke', async (request, reply) => {
+  reply.header('cache-control', 'no-store');
   const token = bearerToken(request.headers.authorization);
   if (!token) return reply.code(401).send({ error: 'missing bearer token' });
+
   const wallet = await store.sessionWallet(token);
   if (!wallet) return reply.code(401).send({ error: 'invalid session' });
+
   const body = z.object({ id: z.string().uuid() }).parse(request.body);
   const revoked = await store.revoke(body.id, wallet);
   return reply.code(revoked ? 200 : 404).send({ revoked });
@@ -163,7 +194,7 @@ app.post('/api/enchantments/revoke', async (request, reply) => {
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
 
-  if (error instanceof z.ZodError) {
+  if (error instanceof z.ZodError || error.message === 'invalid TON address') {
     void reply.code(400).send({ error: 'invalid request' });
     return;
   }
@@ -193,11 +224,18 @@ app.setErrorHandler((error, _request, reply) => {
     'wrong payload',
     'proof expired',
     'bad signature',
+    'domain length mismatch',
+    'invalid signature length',
     'walletStateInit does not match address',
     'could not resolve wallet public key',
   ]);
   if (authenticationErrors.has(error.message)) {
     void reply.code(401).send({ error: 'wallet proof verification failed' });
+    return;
+  }
+
+  if (error.message.startsWith('TON Center')) {
+    void reply.code(503).send({ error: 'TON verification service unavailable' });
     return;
   }
 
