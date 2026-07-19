@@ -1,0 +1,30 @@
+{
+  "name": "ton-rings",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ownership-gated TON Diamond enchantments for Golden Legacy Rings.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "check": "npm run lint && npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@ton/core": "^0.61.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^3.2.0",
+    "eslint": "^9.30.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.0"
+  }
+}
