@@ -1,3 +1,4 @@
+import { Address } from '@ton/core';
 import { TON_DIAMONDS_COLLECTION } from './schema.js';
 
 export interface NftSnapshot {
@@ -11,6 +12,14 @@ export interface NftOwnershipProvider {
   getNft(address: string): Promise<NftSnapshot | null>;
 }
 
+function sameAddress(left: string, right: string): boolean {
+  try {
+    return Address.parse(left).equals(Address.parse(right));
+  } catch {
+    return false;
+  }
+}
+
 export async function verifyDiamondOwnership(
   provider: NftOwnershipProvider,
   diamondAddress: string,
@@ -20,10 +29,10 @@ export async function verifyDiamondOwnership(
   const nft = await provider.getNft(diamondAddress);
   return Boolean(
     nft &&
-      nft.address === diamondAddress &&
+      sameAddress(nft.address, diamondAddress) &&
       nft.index === expectedIndex &&
-      nft.ownerAddress === expectedOwner &&
-      nft.collectionAddress === TON_DIAMONDS_COLLECTION,
+      sameAddress(nft.ownerAddress, expectedOwner) &&
+      sameAddress(nft.collectionAddress, TON_DIAMONDS_COLLECTION),
   );
 }
 
@@ -37,9 +46,9 @@ export async function verifyRingOwnership(
   const nft = await provider.getNft(ringAddress);
   return Boolean(
     nft &&
-      nft.address === ringAddress &&
+      sameAddress(nft.address, ringAddress) &&
       nft.index === expectedIndex &&
-      nft.ownerAddress === expectedOwner &&
-      nft.collectionAddress === expectedCollectionAddress,
+      sameAddress(nft.ownerAddress, expectedOwner) &&
+      sameAddress(nft.collectionAddress, expectedCollectionAddress),
   );
 }
