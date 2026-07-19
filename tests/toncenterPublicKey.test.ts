@@ -14,15 +14,20 @@ function response(body: unknown, status = 200): Response {
 
 describe('TonCenterPublicKeyResolver', () => {
   it('parses a v2 get_public_key result and preserves leading zeroes', async () => {
-    const fetchImpl = vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
-      response({
+    const fetchImpl = vi.fn(async (input: FetchInput, init?: RequestInit) => {
+      expect(input).toBe('https://toncenter.example/api/v2/runGetMethod');
+      expect(init?.method).toBe('POST');
+      expect((init?.headers as Record<string, string>)['X-API-Key']).toBe('test-key');
+
+      return response({
         ok: true,
         result: {
           exit_code: 0,
           stack: [['num', '0x1234']],
         },
-      }),
-    );
+      });
+    });
+
     const resolver = new TonCenterPublicKeyResolver({
       baseUrl: 'https://toncenter.example/api/v3',
       apiKey: 'test-key',
@@ -33,18 +38,11 @@ describe('TonCenterPublicKeyResolver', () => {
     expect(key).toHaveLength(32);
     expect(key?.subarray(30).toString('hex')).toBe('1234');
     expect(fetchImpl).toHaveBeenCalledOnce();
-
-    const firstCall = fetchImpl.mock.calls[0];
-    expect(firstCall).toBeDefined();
-    const [url, init] = firstCall ?? [];
-    expect(url).toBe('https://toncenter.example/api/v2/runGetMethod');
-    expect(init?.method).toBe('POST');
-    expect((init?.headers as Record<string, string>)['X-API-Key']).toBe('test-key');
   });
 
   it('returns null when the wallet getter exits unsuccessfully', async () => {
     const resolver = new TonCenterPublicKeyResolver({
-      fetchImpl: vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
+      fetchImpl: vi.fn(async () =>
         response({ ok: true, result: { exit_code: 11, stack: [] } }),
       ),
     });
@@ -54,9 +52,7 @@ describe('TonCenterPublicKeyResolver', () => {
 
   it('fails closed on upstream errors', async () => {
     const resolver = new TonCenterPublicKeyResolver({
-      fetchImpl: vi.fn(async (_input: FetchInput, _init?: RequestInit) =>
-        response({ error: 'rate limited' }, 429),
-      ),
+      fetchImpl: vi.fn(async () => response({ error: 'rate limited' }, 429)),
     });
 
     await expect(resolver.resolve(wallet)).rejects.toThrow('status 429');
