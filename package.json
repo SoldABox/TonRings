@@ -1,19 +1,31 @@
 {
   "name": "ton-rings",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Ownership-gated TON Diamond enchantments for Golden Legacy Rings.",
+  "description": "Automated ownership-gated TON Diamond enchantments for Golden Legacy Rings.",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "check": "npm run lint && npm run build && npm test"
+    "check": "npm run lint && npm run build && npm test",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "generate": "tsx scripts/generate-collection.ts",
+    "upload:ipfs": "tsx scripts/upload-pinata.ts",
+    "validate:launch": "tsx scripts/validate-launch.ts",
+    "prepare:launch": "npm run generate && npm run validate:launch"
   },
   "engines": { "node": ">=22" },
   "dependencies": {
+    "@fastify/cors": "^11.0.1",
+    "@fastify/rate-limit": "^10.3.0",
     "@ton/core": "^0.61.0",
+    "fastify": "^5.4.0",
+    "jose": "^6.0.11",
+    "postgres": "^3.4.7",
     "tweetnacl": "^1.0.3",
     "zod": "^3.25.0"
   },
@@ -22,6 +34,7 @@
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^9.30.0",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.35.0",
     "vitest": "^3.2.0"
