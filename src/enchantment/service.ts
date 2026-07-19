@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { assertFreshRequest, buildEnchantmentMessage } from './message.js';
 import {
   EnchantmentRequestSchema,
+  TON_DIAMONDS_COLLECTION,
   type EnchantmentRecord,
   type EnchantmentRequest,
 } from './schema.js';
@@ -51,7 +52,7 @@ export class EnchantmentService {
     private readonly signatures: SignatureVerifier,
     private readonly repository: EnchantmentRepository,
     private readonly ringCollectionAddress: string,
-    private readonly diamondCollectionAddress: string,
+    private readonly diamondCollectionAddress: string = TON_DIAMONDS_COLLECTION,
   ) {}
 
   async bind(input: BindInput): Promise<EnchantmentRecord> {
