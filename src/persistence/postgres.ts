@@ -26,6 +26,12 @@ export class PostgresStore {
     return rows.length === 1;
   }
 
+  async hasNonce(nonce: string): Promise<boolean> {
+    const [row] = await this.sql<{ exists: boolean }[]>`
+      SELECT EXISTS(SELECT 1 FROM enchantments WHERE nonce = ${nonce}) AS exists`;
+    return row?.exists ?? false;
+  }
+
   async createSession(walletAddress: string, token: string, ttlSeconds = 86400): Promise<string> {
     const id = randomUUID();
     const hash = createHash('sha256').update(token).digest('hex');
@@ -42,6 +48,16 @@ export class PostgresStore {
       WHERE token_hash = ${hash} AND revoked_at IS NULL AND expires_at > NOW()`;
     return row?.wallet_address ?? null;
   }
+
+  async hasActiveRingBinding(ringAddress: string): Promise<boolean> {
+    return (await this.findActiveByRing(ringAddress)) !== null;
+  }
+
+  async hasActiveDiamondBinding(diamondAddress: string): Promise<boolean> {
+    return (await this.findActiveByDiamond(diamondAddress)) !== null;
+  }
+
+  async save(record: EnchantmentRecord): Promise<void> { await this.saveEnchantment(record); }
 
   async saveEnchantment(record: EnchantmentRecord): Promise<void> {
     await this.sql.begin(async tx => {
