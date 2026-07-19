@@ -24,7 +24,7 @@ function normalizeAddress(value: string): string {
 
 export class TonCenterNftProvider implements NftOwnershipProvider {
   private readonly baseUrl: string;
-  private readonly apiKey?: string;
+  private readonly apiKey: string | undefined;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: TonCenterNftProviderOptions = {}) {
@@ -39,10 +39,14 @@ export class TonCenterNftProvider implements NftOwnershipProvider {
     url.searchParams.set('address', parsedAddress.toRawString());
     url.searchParams.set('limit', '1');
 
-    const response = await this.fetchImpl(url, {
-      headers: this.apiKey ? { 'X-API-Key': this.apiKey } : undefined,
+    const requestInit: RequestInit = {
       signal: AbortSignal.timeout(10_000),
-    });
+    };
+    if (this.apiKey) {
+      requestInit.headers = { 'X-API-Key': this.apiKey };
+    }
+
+    const response = await this.fetchImpl(url, requestInit);
 
     if (response.status === 404) return null;
     if (!response.ok) {
