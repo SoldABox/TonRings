@@ -16,7 +16,9 @@
     "generate": "tsx scripts/generate-collection.ts",
     "upload:ipfs": "tsx scripts/upload-pinata.ts",
     "validate:launch": "tsx scripts/validate-launch.ts",
-    "prepare:launch": "npm run generate && npm run validate:launch"
+    "prepare:launch": "npm run generate && npm run validate:launch",
+    "preflight": "npm run check && npm run validate:launch",
+    "verify:server": "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>{if(!r.ok)throw new Error('health '+r.status);return r.text()}).then(console.log)\""
   },
   "engines": { "node": ">=22" },
   "dependencies": {
