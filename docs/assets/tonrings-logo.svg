@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">TonRings logo</title>
+  <desc id="desc">A golden ring surrounding a blue diamond on a dark background.</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1a8"/>
+      <stop offset="0.35" stop-color="#f4c44e"/>
+      <stop offset="0.7" stop-color="#b97813"/>
+      <stop offset="1" stop-color="#ffe891"/>
+    </linearGradient>
+    <linearGradient id="diamond" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9cecff"/>
+      <stop offset="0.45" stop-color="#1998ea"/>
+      <stop offset="1" stop-color="#004e9a"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="320" height="320" rx="72" fill="#0b1020"/>
+  <circle cx="160" cy="165" r="102" fill="none" stroke="url(#gold)" stroke-width="34" filter="url(#shadow)"/>
+  <circle cx="160" cy="165" r="70" fill="#0b1020" stroke="#3a2a0e" stroke-width="3"/>
+  <path d="M160 70 216 130 160 218 104 130Z" fill="url(#diamond)" stroke="#b9f5ff" stroke-width="5" filter="url(#shadow)"/>
+  <path d="m104 130 56 28 56-28M160 70v88M127 95l33 63 33-63M104 130h112" fill="none" stroke="#dffaff" stroke-opacity="0.72" stroke-width="3"/>
+  <path d="M91 232c38 27 100 27 138 0" fill="none" stroke="#ffe891" stroke-width="7" stroke-linecap="round"/>
+</svg>
