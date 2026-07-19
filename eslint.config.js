@@ -7,6 +7,22 @@ export default tseslint.config(
   },
   js.configs.recommended,
   {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        fetch: 'readonly',
+        localStorage: 'readonly',
+        IntersectionObserver: 'readonly',
+        performance: 'readonly',
+        requestAnimationFrame: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.ts'],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
