@@ -1,0 +1,86 @@
+name: Collection assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/collection/**
+      - scripts/generate-collection.ts
+      - scripts/validate-launch.ts
+      - .github/workflows/collection-assets.yml
+  pull_request:
+    paths:
+      - src/collection/**
+      - scripts/generate-collection.ts
+      - scripts/validate-launch.ts
+      - .github/workflows/collection-assets.yml
+  workflow_dispatch:
+    inputs:
+      collection_size:
+        description: Number of rings to generate
+        required: true
+        default: '256'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collection-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate layered collection
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      APP_ORIGIN: https://preview.tonrings.example
+      TON_PROOF_DOMAIN: preview.tonrings.example
+      TONCENTER_BASE_URL: https://toncenter.com/api/v3
+      TON_DIAMONDS_COLLECTION: EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c
+      RING_COLLECTION_ADDRESS: EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBe8
+      DATABASE_URL: postgres://tonrings:tonrings@localhost:5432/tonrings
+      IPFS_GATEWAY: https://ipfs.io/ipfs/
+      COLLECTION_SIZE: ${{ inputs.collection_size || '256' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Generate collection
+        run: npm run generate
+
+      - name: Validate generated output
+        run: npm run validate:launch
+
+      - name: Verify deterministic regeneration
+        run: |
+          sha256sum generated/manifest.json generated/report.json > /tmp/first.sha256
+          npm run generate
+          sha256sum generated/manifest.json generated/report.json > /tmp/second.sha256
+          diff -u /tmp/first.sha256 /tmp/second.sha256
+
+      - name: Package generated elements
+        run: tar -czf tonrings-generated-${{ github.sha }}.tar.gz generated
+
+      - name: Upload generated collection
+        uses: actions/upload-artifact@v7
+        with:
+          name: tonrings-generated-${{ github.sha }}
+          path: tonrings-generated-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+          retention-days: 30
