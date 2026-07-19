@@ -2,7 +2,7 @@ import { Address } from '@ton/core';
 
 interface TonCenterPublicKeyOptions {
   baseUrl?: string;
-  apiKey?: string;
+  apiKey?: string | undefined;
   fetchImpl?: typeof fetch;
 }
 
