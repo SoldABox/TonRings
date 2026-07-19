@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#080b14" />
+  <meta name="description" content="Turn a collectible TON ring into an evolving digital trophy with verified TON Diamond enchantments." />
+  <title>TonRings — Wear the Moment Forever</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="TonRings home">
+      <img src="/logo.svg" alt="" width="38" height="38" />
+      <span>TonRings</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#experience">Experience</a>
+      <a href="#how">How it works</a>
+      <a href="#security">Trust</a>
+    </nav>
+    <button class="status-chip" id="statusChip" type="button" aria-live="polite">
+      <span class="status-dot"></span>
+      <span id="statusText">Checking system</span>
+    </button>
+  </header>
+
+  <main id="top">
+    <section class="hero shell">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Collect · Verify · Evolve</p>
+        <h1>Wear the moment.<br /><span>Make it legendary.</span></h1>
+        <p class="hero-text">
+          TonRings turns collectible championship rings into evolving digital trophies.
+          Prove ownership, pair an eligible TON Diamond, and unlock a verified visual identity—without moving either NFT from your wallet.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#experience">Build your ring</a>
+          <button class="button secondary" id="watchDemo" type="button">Watch enchantment</button>
+        </div>
+        <div class="trust-row" aria-label="Project guarantees">
+          <span>Non-custodial</span>
+          <span>Wallet verified</span>
+          <span>One-of-one binding</span>
+        </div>
+      </div>
+
+      <div class="hero-visual reveal" aria-label="Interactive enchanted ring preview">
+        <div class="orbit orbit-one" aria-hidden="true"></div>
+        <div class="orbit orbit-two" aria-hidden="true"></div>
+        <div class="ring-stage" id="ringStage" data-material="gold" data-gem="diamond">
+          <div class="ring-shadow"></div>
+          <div class="ring-body">
+            <div class="ring-band"></div>
+            <div class="ring-crown">
+              <div class="gem" id="heroGem"></div>
+              <span class="spark spark-one"></span>
+              <span class="spark spark-two"></span>
+              <span class="spark spark-three"></span>
+            </div>
+          </div>
+          <div class="verification-badge">
+            <span>✓</span>
+            Verified enchantment
+          </div>
+        </div>
+        <p class="visual-caption">Tap “Watch enchantment” to activate the Diamond.</p>
+      </div>
+    </section>
+
+    <section class="metrics shell reveal" aria-label="Collection highlights">
+      <article><strong data-count="256">0</strong><span>Genesis rings</span></article>
+      <article><strong data-count="15">0</strong><span>Founder Diamonds</span></article>
+      <article><strong>0</strong><span>NFTs held in custody</span></article>
+      <article><strong>&lt;15m</strong><span>Signed request lifetime</span></article>
+    </section>
+
+    <section class="experience shell" id="experience">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Your ring, your signal</p>
+        <h2>Design the feeling before you bind.</h2>
+        <p>Explore combinations instantly. This visual preview is lightweight, private, and runs entirely in your browser.</p>
+      </div>
+
+      <div class="customizer reveal">
+        <div class="preview-card">
+          <div class="mini-stage" id="miniStage" data-material="gold" data-gem="diamond" data-aura="royal">
+            <div class="mini-ring">
+              <div class="mini-band"></div>
+              <div class="mini-crown"><div class="mini-gem"></div></div>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <div>
+              <p class="label">Live preview</p>
+              <h3 id="previewName">Royal Gold · Diamond</h3>
+            </div>
+            <button class="icon-button" id="randomize" type="button" aria-label="Randomize ring">↻</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <fieldset>
+            <legend>Material</legend>
+            <div class="choice-grid" data-control="material">
+              <button class="choice active" type="button" data-value="gold">Royal Gold</button>
+              <button class="choice" type="button" data-value="platinum">Platinum</button>
+              <button class="choice" type="button" data-value="obsidian">Obsidian</button>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Gem signal</legend>
+            <div class="choice-grid" data-control="gem">
+              <button class="choice active" type="button" data-value="diamond">Diamond</button>
+              <button class="choice" type="button" data-value="sapphire">Sapphire</button>
+              <button class="choice" type="button" data-value="emerald">Emerald</button>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Aura</legend>
+            <div class="choice-grid" data-control="aura">
+              <button class="choice active" type="button" data-value="royal">Royal</button>
+              <button class="choice" type="button" data-value="victory">Victory</button>
+              <button class="choice" type="button" data-value="eternal">Eternal</button>
+            </div>
+          </fieldset>
+          <button class="button primary full" id="saveLook" type="button">Save this look</button>
+          <p class="microcopy" id="saveMessage" aria-live="polite">No wallet connection is required for previewing.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="how shell" id="how">
+      <div class="section-heading reveal">
+        <p class="eyebrow">Three deliberate steps</p>
+        <h2>Simple for collectors. Strict underneath.</h2>
+      </div>
+      <div class="steps">
+        <article class="step reveal">
+          <span class="step-number">01</span>
+          <h3>Connect and prove</h3>
+          <p>Your wallet signs a short-lived, one-time TonConnect proof tied to the exact TonRings domain.</p>
+        </article>
+        <article class="step reveal">
+          <span class="step-number">02</span>
+          <h3>Select your pair</h3>
+          <p>TonRings checks current ownership and collection identity for both the ring and Diamond.</p>
+        </article>
+        <article class="step reveal">
+          <span class="step-number">03</span>
+          <h3>Activate the legacy</h3>
+          <p>An atomic binding records the relationship. Your NFTs stay untouched in your own wallet.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="security shell" id="security">
+      <div class="security-panel reveal">
+        <div>
+          <p class="eyebrow">Built around trust</p>
+          <h2>Your assets never enter our hands.</h2>
+          <p>
+            TonRings verifies ownership instead of asking for custody. Sessions are opaque, nonces are single-use,
+            addresses are normalized, and active bindings are protected by database-level uniqueness.
+          </p>
+        </div>
+        <ul class="security-list">
+          <li><span>✓</span> No seed phrase or private key collection</li>
+          <li><span>✓</span> No NFT transfer required</li>
+          <li><span>✓</span> Domain-bound wallet proof</li>
+          <li><span>✓</span> Current ownership rechecked before binding</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="cta shell reveal">
+      <div>
+        <p class="eyebrow">A trophy that remembers</p>
+        <h2>Build a ring people recognize before they read the name.</h2>
+      </div>
+      <a class="button primary" href="#experience">Create a preview</a>
+    </section>
+  </main>
+
+  <footer class="footer shell">
+    <div class="brand"><img src="/logo.svg" alt="" width="32" height="32" /><span>TonRings</span></div>
+    <p>Independent, non-custodial TON NFT experience.</p>
+    <p>Not affiliated with FIFA, TON Foundation, TON Diamonds, or Getgems.</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
