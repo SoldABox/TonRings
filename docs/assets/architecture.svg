@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">TonRings architecture</title>
+  <desc id="desc">Flow from wallet through TonConnect and the API to TON Center, PostgreSQL and IPFS.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1020"/><stop offset="1" stop-color="#121b35"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe891"/><stop offset="1" stop-color="#b97813"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#7dd3fc"/></marker>
+    <style>
+      .box{fill:#17213e;stroke:#334b78;stroke-width:2}.gold{stroke:url(#gold)}
+      .title{font:700 24px system-ui,sans-serif;fill:#fff}.text{font:500 17px system-ui,sans-serif;fill:#cbd5e1}
+      .small{font:500 14px system-ui,sans-serif;fill:#94a3b8}.arrow{stroke:#7dd3fc;stroke-width:4;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1200" height="520" rx="32" fill="url(#bg)"/>
+  <text x="54" y="58" class="title">TonRings verified enchantment flow</text>
+
+  <rect x="50" y="150" width="190" height="150" rx="22" class="box gold"/>
+  <text x="145" y="202" text-anchor="middle" class="title">Wallet</text>
+  <text x="145" y="238" text-anchor="middle" class="text">Ring + Diamond</text>
+  <text x="145" y="268" text-anchor="middle" class="small">Assets never leave wallet</text>
+
+  <rect x="300" y="150" width="205" height="150" rx="22" class="box"/>
+  <text x="402" y="202" text-anchor="middle" class="title">TonConnect</text>
+  <text x="402" y="238" text-anchor="middle" class="text">Domain proof</text>
+  <text x="402" y="268" text-anchor="middle" class="small">Nonce + signature</text>
+
+  <rect x="565" y="130" width="220" height="190" rx="22" class="box gold"/>
+  <text x="675" y="185" text-anchor="middle" class="title">TonRings API</text>
+  <text x="675" y="222" text-anchor="middle" class="text">Validate request</text>
+  <text x="675" y="252" text-anchor="middle" class="text">Verify ownership</text>
+  <text x="675" y="282" text-anchor="middle" class="small">Rate limits · expiry · replay guard</text>
+
+  <rect x="855" y="75" width="280" height="110" rx="22" class="box"/>
+  <text x="995" y="122" text-anchor="middle" class="title">TON Center</text>
+  <text x="995" y="154" text-anchor="middle" class="small">Current owner + collection data</text>
+
+  <rect x="855" y="215" width="280" height="110" rx="22" class="box"/>
+  <text x="995" y="262" text-anchor="middle" class="title">PostgreSQL</text>
+  <text x="995" y="294" text-anchor="middle" class="small">Atomic one-ring / one-Diamond binding</text>
+
+  <rect x="855" y="355" width="280" height="110" rx="22" class="box"/>
+  <text x="995" y="402" text-anchor="middle" class="title">IPFS / Getgems</text>
+  <text x="995" y="434" text-anchor="middle" class="small">Metadata and enchanted visuals</text>
+
+  <path d="M240 225H300" class="arrow"/>
+  <path d="M505 225H565" class="arrow"/>
+  <path d="M785 188C820 188 820 130 855 130" class="arrow"/>
+  <path d="M785 250H855" class="arrow"/>
+  <path d="M785 286C820 286 820 410 855 410" class="arrow"/>
+
+  <text x="54" y="470" class="small">Trust boundary: no custody, no NFT transfer, fail closed when verification or configuration is unavailable.</text>
+</svg>
