@@ -3,62 +3,65 @@
 
 # TonRings
 
-**Ownership-gated TON Diamond enchantments for collectible championship rings.**
+**Non-custodial, ownership-gated TON Diamond enchantments for collectible championship rings.**
 
 [![CI](https://github.com/SoldABox/TonRings/actions/workflows/ci.yml/badge.svg)](https://github.com/SoldABox/TonRings/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/Node.js-22%2B-339933?logo=nodedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![TON](https://img.shields.io/badge/Network-TON-0098EA)
-![License](https://img.shields.io/badge/code-Apache--2.0-blue)
+![License](https://img.shields.io/badge/code-MIT-blue)
 
 </div>
 
 ## What TonRings does
 
-TonRings lets a wallet owner bind an eligible **TON Diamond NFT** to a **TonRings NFT** as an enchantment. The original NFTs remain in the owner's wallet and are never modified or transferred by the application.
+TonRings lets a verified wallet bind one eligible **TON Diamond NFT** to one **TonRings NFT** as an application-level enchantment. Neither NFT is transferred, wrapped, burned, or modified by the service.
 
-The service verifies:
+The backend verifies:
 
-1. The wallet owns the selected ring.
-2. The wallet owns the selected TON Diamond.
-3. Both NFTs belong to the configured collections.
-4. The wallet signed the exact one-time request.
-5. The nonce is unused and not expired.
-6. The ring and Diamond are not already actively bound.
-
-The final binding is stored atomically in PostgreSQL.
+1. A server-issued TonConnect nonce is valid and unused.
+2. The TonConnect proof matches the configured domain.
+3. `walletStateInit` derives the claimed wallet address.
+4. The wallet public key resolves from the address-bound contract.
+5. The wallet currently owns both NFTs.
+6. Each NFT belongs to the configured collection.
+7. The ring and Diamond are not already actively bound.
+8. The final binding is committed atomically in PostgreSQL.
 
 > TonRings is an independent project. It is not affiliated with FIFA, TON Foundation, TON Diamonds, Getgems, or any football organization unless a written partnership is announced.
 
-## Visual architecture
+## Architecture
 
 ![TonRings architecture](docs/assets/architecture.svg)
 
 ```text
-Wallet → TonConnect proof → API → TON ownership checks
-                            ↓
-                    Atomic PostgreSQL binding
-                            ↓
-                 Ring metadata / visual enchantment
+Wallet → TonConnect proof → authenticated session
+                               ↓
+Ring + Diamond → TON ownership checks → atomic PostgreSQL binding
+                                           ↓
+                                metadata / enchanted visuals
 ```
 
-## Current capabilities
+## Implementation status
 
 | Area | Status |
 |---|---|
-| Strict TypeScript core | Implemented |
+| Strict TypeScript domain core | Implemented |
 | TON NFT ownership provider | Implemented |
+| On-chain wallet public-key resolver | Implemented |
 | TonConnect proof verification | Implemented |
-| Replay and expiry protection | Implemented |
+| One-time nonce consumption | Implemented |
+| Opaque bearer sessions | Implemented |
+| Wallet verification endpoint | Implemented |
+| Enchantment binding endpoint | Implemented |
 | Atomic ring/Diamond exclusivity | Implemented |
-| PostgreSQL storage | Implemented |
-| Nonce and session foundation | Implemented |
+| Revocation and lookup endpoints | Implemented |
+| PostgreSQL migrations | Implemented |
 | NFT collection generator | Implemented |
-| IPFS/Pinata upload automation | Implemented |
-| Health/readiness endpoints | Implemented |
-| Public wallet verification route | In progress |
-| Public enchantment binding route | In progress |
-| Production web interface | Planned |
+| Pinata/IPFS uploader | Implemented |
+| Health and readiness probes | Implemented |
+| GitHub Actions verification | Configured; latest run must be green |
+| Production web interface | Separate frontend still required |
 
 ## Repository map
 
@@ -68,28 +71,23 @@ src/
   config/           Environment validation
   enchantment/      Binding rules and domain service
   persistence/      PostgreSQL implementation
-  ton/              TON Center ownership provider
+  ton/              TON Center adapters
   server.ts         Fastify HTTP application
-scripts/
-  migrate.ts        Database migration runner
-  generate-collection.ts
-  upload-pinata.ts
-  validate-launch.ts
-tests/              Unit and integration-oriented tests
-docs/               Architecture, API and deployment guides
-generated/          Generated images and metadata (not committed)
+migrations/         Ordered PostgreSQL migrations
+scripts/            Migration, generation, upload and launch validation
+tests/              Domain, proof and TON Center tests
+docs/               Architecture, API, deployment and launch guides
+generated/          Generated assets and metadata; not committed
 ```
 
-## Fast local start
+## Quick start
 
-### Requirements
+Requirements:
 
-- Node.js 22 or newer
+- Node.js 22+
 - PostgreSQL
 - TON Center API key
-- Pinata JWT for IPFS uploads
-
-### Setup
+- Pinata JWT for upload automation
 
 ```bash
 cp .env.example .env
@@ -99,7 +97,7 @@ npm run check
 npm run dev
 ```
 
-Service checks:
+Check the service:
 
 ```bash
 curl http://localhost:3000/health
@@ -110,77 +108,91 @@ curl http://localhost:3000/ready
 
 | Variable | Purpose |
 |---|---|
-| `APP_ORIGIN` | Allowed frontend origin |
-| `TON_PROOF_DOMAIN` | Domain expected in TonConnect proof |
-| `TONCENTER_BASE_URL` | TON Center API endpoint |
+| `APP_ORIGIN` | Exact allowed frontend origin |
+| `TON_PROOF_DOMAIN` | Exact hostname expected in TonConnect proof |
+| `TONCENTER_BASE_URL` | TON Center API v3 base; v2 getter calls use the same origin |
 | `TONCENTER_API_KEY` | TON Center credential |
 | `TON_DIAMONDS_COLLECTION` | Authoritatively verified Diamond collection address |
 | `RING_COLLECTION_ADDRESS` | Deployed TonRings collection address |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `SESSION_SECRET` | Random secret, minimum 32 characters |
+| `SESSION_SECRET` | Reserved random application secret, minimum 32 characters |
 | `PINATA_JWT` | Pinata upload credential |
 | `IPFS_GATEWAY` | Public IPFS gateway |
 | `COLLECTION_SIZE` | Number of generated ring NFTs |
 
-Never commit `.env` or real credentials.
+Never commit `.env`, wallet seeds, private keys, database credentials, or API tokens.
 
 ## Commands
 
 | Command | Function |
 |---|---|
 | `npm run dev` | Run the API with live reload |
-| `npm run build` | Compile strict TypeScript |
+| `npm run start` | Start compiled production server |
 | `npm run lint` | Run type-aware ESLint |
-| `npm test` | Run tests and coverage |
+| `npm run build` | Compile strict TypeScript |
+| `npm test` | Run tests with coverage |
 | `npm run check` | Lint, build and test |
-| `npm run db:migrate` | Apply database migration |
-| `npm run generate` | Generate collection assets and metadata |
-| `npm run upload:ipfs` | Upload generated output to Pinata |
+| `npm run db:migrate` | Apply ordered database migrations |
+| `npm run generate` | Generate deterministic collection files |
 | `npm run validate:launch` | Validate environment and generated output |
-| `npm run prepare:launch` | Generate and validate the collection |
+| `npm run upload:ipfs` | Upload generated files to Pinata |
+| `npm run prepare:launch` | Generate and validate collection files |
 | `npm run preflight` | Full code and launch validation |
+| `npm run verify:server` | Verify the local health endpoint |
 
 ## API overview
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/health` | Process health |
-| `GET` | `/ready` | Production dependency readiness |
-| `POST` | `/api/auth/nonce` | Issue a one-time authentication nonce |
-| `GET` | `/api/enchantments/ring/:address` | Find an active binding by ring |
-| `GET` | `/api/enchantments/diamond/:address` | Find an active binding by Diamond |
-| `POST` | `/api/enchantments/revoke` | Revoke an owned binding |
+| `GET` | `/ready` | Configuration and database readiness |
+| `POST` | `/api/auth/nonce` | Issue a five-minute TonConnect nonce |
+| `POST` | `/api/auth/verify` | Verify wallet proof and issue a session |
+| `POST` | `/api/enchantments/bind` | Bind a verified ring and Diamond |
+| `GET` | `/api/enchantments/ring/:address` | Find active binding by ring |
+| `GET` | `/api/enchantments/diamond/:address` | Find active binding by Diamond |
+| `POST` | `/api/enchantments/revoke` | Revoke a binding owned by the session wallet |
 
 See [API reference](docs/API.md).
 
 ## Security model
 
-- NFTs remain in the user's wallet.
-- Wallet proofs are domain-bound and payload-bound.
-- Proofs and enchantment requests expire.
-- Nonces are single use.
-- TON addresses are normalized before comparison.
-- NFT ownership is checked against current on-chain/indexed data.
-- Database uniqueness must be enforced atomically.
-- API requests are size-limited and rate-limited.
-- Readiness fails closed when launch configuration is missing.
+- No custody and no NFT transfer.
+- Exact TonConnect domain validation.
+- Address-bound `walletStateInit` validation.
+- Public keys resolved from wallet contracts, not trusted from client input.
+- Short-lived proofs and single-use nonces.
+- Opaque session tokens stored only as SHA-256 hashes.
+- Normalized TON address comparison.
+- Current NFT ownership and collection checks.
+- PostgreSQL uniqueness and transaction locks.
+- Request body limits, route-level rate limits and restricted CORS.
+- Generic production errors without internal stack traces.
+- `/ready` fails closed for missing launch configuration or database failure.
 
 Security reports should follow [SECURITY.md](SECURITY.md).
 
 ## Deployment
 
-The fastest supported path is a managed Node service plus managed PostgreSQL:
+Fastest supported production layout:
 
-1. Create PostgreSQL.
-2. configure environment variables.
-3. Run `npm run db:migrate`.
-4. Build with `npm install && npm run build`.
-5. Start with `npm start`.
-6. Require `/ready` to return HTTP 200.
+1. Managed PostgreSQL.
+2. Managed Node/Docker service.
+3. Pinata/IPFS for immutable assets.
+4. Separate HTTPS frontend with TonConnect UI.
 
-See the [deployment guide](docs/DEPLOYMENT.md) and [launch checklist](docs/LAUNCH_CHECKLIST.md).
+```bash
+npm install --no-audit --no-fund
+npm run db:migrate
+npm run build
+npm start
+```
 
-## Project documentation
+Require `/ready` to return HTTP 200 before announcing availability.
+
+See [deployment guide](docs/DEPLOYMENT.md) and [launch checklist](docs/LAUNCH_CHECKLIST.md).
+
+## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [API reference](docs/API.md)
@@ -190,6 +202,6 @@ See the [deployment guide](docs/DEPLOYMENT.md) and [launch checklist](docs/LAUNC
 
 ## Licensing
 
-- Source code: Apache License 2.0
+- Source code: MIT License
 - Artwork, collection identity and brand assets: all rights reserved unless explicitly stated otherwise
 - Third-party NFT names and marks remain property of their respective owners
