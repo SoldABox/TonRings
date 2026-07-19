@@ -25,6 +25,12 @@ function sha256(data: Uint8Array): Buffer {
   return createHash('sha256').update(data).digest();
 }
 
+function int32Be(value: number): Buffer {
+  const out = Buffer.alloc(4);
+  out.writeInt32BE(value);
+  return out;
+}
+
 function uint32Le(value: number): Buffer {
   const out = Buffer.alloc(4);
   out.writeUInt32LE(value);
@@ -45,18 +51,12 @@ function equalText(left: string, right: string): boolean {
 
 export function buildTonProofDigest(address: Address, proof: TonProof): Buffer {
   const domain = Buffer.from(proof.domain.value, 'utf8');
-  if (proof.domain.lengthBytes !== domain.length) {
-    throw new Error('domain length mismatch');
-  }
-
-  const addressBytes = Buffer.concat([
-    Buffer.from([address.workChain & 0xff, 0, 0, 0]),
-    address.hash,
-  ]);
+  if (proof.domain.lengthBytes !== domain.length) throw new Error('domain length mismatch');
 
   const message = Buffer.concat([
     Buffer.from('ton-proof-item-v2/', 'utf8'),
-    addressBytes,
+    int32Be(address.workChain),
+    address.hash,
     uint32Le(domain.length),
     domain,
     uint64Le(proof.timestamp),
@@ -90,7 +90,6 @@ export async function verifyTonProof(
   if (signature.length !== 64) throw new Error('invalid signature length');
 
   const digest = buildTonProofDigest(wantedAddress, input.proof);
-  const valid = nacl.sign.detached.verify(digest, signature, publicKey);
-  if (!valid) throw new Error('bad signature');
+  if (!nacl.sign.detached.verify(digest, signature, publicKey)) throw new Error('bad signature');
   return true;
 }
