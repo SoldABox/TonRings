@@ -10,6 +10,8 @@ const EnvSchema = z.object({
   TONCENTER_API_KEY: z.string().optional(),
   TON_DIAMONDS_COLLECTION: z.string().min(10),
   RING_COLLECTION_ADDRESS: z.string().min(10),
+  RING_METADATA_BASE: z.string().startsWith('ipfs://').optional(),
+  MINT_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   DATABASE_URL: z.string().url(),
   PINATA_JWT: z.string().optional(),
   IPFS_GATEWAY: z.string().url().default('https://ipfs.io/ipfs/'),
