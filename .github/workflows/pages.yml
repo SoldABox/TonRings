@@ -1,0 +1,103 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - public/**
+      - src/collection/**
+      - scripts/build-pages.mjs
+      - scripts/generate-collection.ts
+      - package.json
+      - .github/workflows/pages.yml
+  pull_request:
+    paths:
+      - public/**
+      - src/collection/**
+      - scripts/build-pages.mjs
+      - scripts/generate-collection.ts
+      - package.json
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build static showcase
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      APP_ORIGIN: https://soldabox.github.io
+      TON_PROOF_DOMAIN: soldabox.github.io
+      TONCENTER_BASE_URL: https://toncenter.com/api/v3
+      TON_DIAMONDS_COLLECTION: EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c
+      RING_COLLECTION_ADDRESS: EQBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBe8
+      DATABASE_URL: postgres://tonrings:tonrings@localhost:5432/tonrings
+      IPFS_GATEWAY: https://ipfs.io/ipfs/
+      COLLECTION_SIZE: '256'
+      TONRINGS_API_BASE: ${{ vars.TONRINGS_API_BASE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify source
+        run: npm run check
+
+      - name: Build Pages site and collection gallery
+        run: npm run build:pages
+
+      - name: Verify Pages output
+        run: |
+          test -f pages-dist/index.html
+          test -f pages-dist/404.html
+          test -f pages-dist/.nojekyll
+          test -f pages-dist/config.js
+          test -f pages-dist/collection/gallery.html
+          test "$(find pages-dist/collection/images -name '*.svg' | wc -l)" -eq 256
+          grep -q './styles.css' pages-dist/index.html
+          grep -q './collection/gallery.html' pages-dist/index.html
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: pages-dist
+
+  deploy:
+    name: Publish site
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
