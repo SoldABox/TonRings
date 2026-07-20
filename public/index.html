@@ -8,6 +8,7 @@
   <title>TonRings — Wear the Moment Forever</title>
   <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/styles.css" />
+  <script src="https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -24,6 +25,7 @@
       <a href="#how">How it works</a>
       <a href="#security">Trust</a>
     </nav>
+    <div id="ton-connect" aria-label="Connect TON wallet"></div>
     <button class="status-chip" id="statusChip" type="button" aria-live="polite">
       <span class="status-dot"></span>
       <span id="statusText">Checking system</span>
@@ -42,7 +44,9 @@
         <div class="hero-actions">
           <a class="button primary" href="#experience">Build your ring</a>
           <button class="button secondary" id="watchDemo" type="button">Watch enchantment</button>
+          <button class="button primary" id="mintRing" type="button" disabled>Connect wallet to mint</button>
         </div>
+        <p class="microcopy" id="mintMessage" aria-live="polite">Mint preparation uses the live collection index and requires wallet approval.</p>
         <div class="trust-row" aria-label="Project guarantees">
           <span>Non-custodial</span>
           <span>Wallet verified</span>

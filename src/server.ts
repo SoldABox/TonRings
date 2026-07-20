@@ -12,11 +12,13 @@ import { EnchantmentRequestSchema } from './enchantment/schema.js';
 import { EnchantmentService } from './enchantment/service.js';
 import { sameAddress } from './enchantment/ownership.js';
 import { classifyError } from './http/errorResponse.js';
+import { buildTonConnectMintTransaction } from './nft/referenceMint.js';
 import { PostgresStore } from './persistence/postgres.js';
+import { TonCenterCollectionReader } from './ton/toncenterCollection.js';
 import { TonCenterNftProvider } from './ton/toncenterNftProvider.js';
 import { TonCenterPublicKeyResolver } from './ton/toncenterPublicKey.js';
 
-const SERVICE_VERSION = '0.4.0';
+const SERVICE_VERSION = '0.5.0';
 const SESSION_TTL_SECONDS = 86_400;
 
 const env = loadEnv();
@@ -27,6 +29,10 @@ const ownership = new TonCenterNftProvider({
   apiKey: env.TONCENTER_API_KEY,
 });
 const publicKeys = new TonCenterPublicKeyResolver({
+  baseUrl: env.TONCENTER_BASE_URL,
+  apiKey: env.TONCENTER_API_KEY,
+});
+const collections = new TonCenterCollectionReader({
   baseUrl: env.TONCENTER_BASE_URL,
   apiKey: env.TONCENTER_API_KEY,
 });
@@ -48,6 +54,7 @@ const VerifyWalletSchema = z.object({
 });
 
 const BindSchema = z.object({ request: EnchantmentRequestSchema });
+const PrepareMintSchema = z.object({ recipientAddress: z.string().min(10) });
 
 function bearerToken(authorization: string | undefined): string | null {
   const match = /^Bearer\s+(.+)$/i.exec(authorization ?? '');
@@ -83,6 +90,7 @@ app.get('/ready', async (_request, reply) => {
     env.TONCENTER_API_KEY ? null : 'TONCENTER_API_KEY',
     env.TON_DIAMONDS_COLLECTION.startsWith('REPLACE') ? 'TON_DIAMONDS_COLLECTION' : null,
     env.RING_COLLECTION_ADDRESS.startsWith('REPLACE') ? 'RING_COLLECTION_ADDRESS' : null,
+    env.RING_METADATA_BASE ? null : 'RING_METADATA_BASE',
   ].filter((value): value is string => Boolean(value));
 
   try {
@@ -96,6 +104,45 @@ app.get('/ready', async (_request, reply) => {
     missing,
   });
 });
+
+app.post(
+  '/api/mint/prepare',
+  { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+  async (request, reply) => {
+    reply.header('cache-control', 'no-store');
+    if (!env.RING_METADATA_BASE) {
+      return reply.code(503).send({ error: 'ring metadata base is not configured' });
+    }
+
+    const input = PrepareMintSchema.parse(request.body);
+    const recipientAddress = Address.parse(input.recipientAddress).toString({
+      bounceable: false,
+      urlSafe: true,
+    });
+    const itemIndex = await collections.getNextItemIndex(env.RING_COLLECTION_ADDRESS);
+    if (itemIndex >= BigInt(env.COLLECTION_SIZE)) {
+      return reply.code(409).send({ error: 'collection is fully minted' });
+    }
+
+    const metadataBase = env.RING_METADATA_BASE.endsWith('/')
+      ? env.RING_METADATA_BASE
+      : `${env.RING_METADATA_BASE}/`;
+    const transaction = buildTonConnectMintTransaction({
+      collectionAddress: env.RING_COLLECTION_ADDRESS,
+      recipientAddress,
+      itemIndex,
+      itemContent: `${metadataBase}${itemIndex}.json`,
+      network: env.MINT_NETWORK === 'mainnet' ? '-239' : '-3',
+    });
+
+    return reply.code(200).send({
+      itemIndex: itemIndex.toString(),
+      recipientAddress,
+      metadata: `${metadataBase}${itemIndex}.json`,
+      transaction,
+    });
+  },
+);
 
 app.post(
   '/api/auth/nonce',
