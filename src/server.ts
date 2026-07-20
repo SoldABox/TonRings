@@ -11,6 +11,7 @@ import { loadEnv } from './config/env.js';
 import { EnchantmentRequestSchema } from './enchantment/schema.js';
 import { EnchantmentService } from './enchantment/service.js';
 import { sameAddress } from './enchantment/ownership.js';
+import { classifyError } from './http/errorResponse.js';
 import { PostgresStore } from './persistence/postgres.js';
 import { TonCenterNftProvider } from './ton/toncenterNftProvider.js';
 import { TonCenterPublicKeyResolver } from './ton/toncenterPublicKey.js';
@@ -202,54 +203,8 @@ app.post('/api/enchantments/revoke', async (request, reply) => {
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
-  const errorMessage = error instanceof Error ? error.message : String(error);
-
-  if (error instanceof z.ZodError || errorMessage === 'invalid TON address') {
-    void reply.code(400).send({ error: 'invalid request' });
-    return;
-  }
-
-  const conflicts = new Set([
-    'nonce already used',
-    'ring already enchanted',
-    'diamond already bound',
-  ]);
-  if (conflicts.has(errorMessage)) {
-    void reply.code(409).send({ error: errorMessage });
-    return;
-  }
-
-  const forbidden = new Set([
-    'ring ownership verification failed',
-    'diamond ownership verification failed',
-    'signature verification failed',
-  ]);
-  if (forbidden.has(errorMessage)) {
-    void reply.code(403).send({ error: errorMessage });
-    return;
-  }
-
-  const authenticationErrors = new Set([
-    'wrong domain',
-    'wrong payload',
-    'proof expired',
-    'bad signature',
-    'domain length mismatch',
-    'invalid signature length',
-    'walletStateInit does not match address',
-    'could not resolve wallet public key',
-  ]);
-  if (authenticationErrors.has(errorMessage)) {
-    void reply.code(401).send({ error: 'wallet proof verification failed' });
-    return;
-  }
-
-  if (errorMessage.startsWith('TON Center')) {
-    void reply.code(503).send({ error: 'TON verification service unavailable' });
-    return;
-  }
-
-  void reply.code(500).send({ error: 'internal error' });
+  const response = classifyError(error);
+  void reply.code(response.statusCode).send(response.body);
 });
 
 const shutdown = async () => {
