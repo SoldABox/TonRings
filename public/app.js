@@ -1,6 +1,8 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+const config = window.TONRINGS_CONFIG ?? {};
+const apiBase = typeof config.apiBase === 'string' ? config.apiBase.replace(/\/$/, '') : '';
 const statusChip = $('#statusChip');
 const statusText = $('#statusText');
 const toast = $('#toast');
@@ -15,6 +17,10 @@ const labels = {
   aura: { royal: 'Royal', victory: 'Victory', eternal: 'Eternal' },
 };
 
+function apiUrl(path) {
+  return `${apiBase}${path}`;
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -24,18 +30,25 @@ function showToast(message) {
 
 async function checkStatus() {
   statusChip.classList.remove('ready', 'offline');
+
+  if (!apiBase) {
+    statusChip.classList.add('ready');
+    statusText.textContent = 'Showcase online';
+    return;
+  }
+
   statusText.textContent = 'Checking system';
   try {
     const [health, ready] = await Promise.all([
-      fetch('/health', { cache: 'no-store' }),
-      fetch('/ready', { cache: 'no-store' }),
+      fetch(apiUrl('/health'), { cache: 'no-store' }),
+      fetch(apiUrl('/ready'), { cache: 'no-store' }),
     ]);
     if (!health.ok) throw new Error('unhealthy');
     statusChip.classList.add(ready.ok ? 'ready' : 'offline');
-    statusText.textContent = ready.ok ? 'System ready' : 'Preview mode';
+    statusText.textContent = ready.ok ? 'System ready' : 'API setup pending';
   } catch {
     statusChip.classList.add('offline');
-    statusText.textContent = 'Preview mode';
+    statusText.textContent = 'Showcase online';
   }
 }
 
@@ -78,7 +91,7 @@ $('#randomize')?.addEventListener('click', () => {
   showToast('A new combination appeared');
 });
 
-$('#saveLook')?.addEventListener('click', async () => {
+$('#saveLook')?.addEventListener('click', () => {
   const look = {
     material: labels.material[miniStage.dataset.material],
     gem: labels.gem[miniStage.dataset.gem],

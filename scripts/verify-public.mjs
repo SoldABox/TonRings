@@ -6,17 +6,19 @@ const requiredFiles = [
   'public/styles.css',
   'public/app.js',
   'public/logo.svg',
+  'scripts/build-pages.mjs',
 ];
 
 for (const file of requiredFiles) {
   await access(file, constants.R_OK);
 }
 
-const [html, css, script, logo] = await Promise.all([
+const [html, css, script, logo, pagesBuilder] = await Promise.all([
   readFile('public/index.html', 'utf8'),
   readFile('public/styles.css', 'utf8'),
   readFile('public/app.js', 'utf8'),
   readFile('public/logo.svg', 'utf8'),
+  readFile('scripts/build-pages.mjs', 'utf8'),
 ]);
 
 const failures = [];
@@ -46,8 +48,12 @@ if (!html.includes('Not affiliated with FIFA')) {
   failures.push('independent-project disclaimer is missing');
 }
 
-if (!script.includes("fetch('/health'")) failures.push('health interaction is missing');
-if (!script.includes("fetch('/ready'")) failures.push('readiness interaction is missing');
+if (!script.includes("apiUrl('/health')")) failures.push('health interaction is missing');
+if (!script.includes("apiUrl('/ready')")) failures.push('readiness interaction is missing');
+if (!script.includes('Showcase online')) failures.push('static showcase mode is missing');
+if (!pagesBuilder.includes("replaceAll('href=\"/styles.css\"'")) failures.push('Pages path rewriting is missing');
+if (!pagesBuilder.includes('generated/gallery.html')) failures.push('generated gallery packaging is missing');
+if (!pagesBuilder.includes('.nojekyll')) failures.push('GitHub Pages no-Jekyll marker is missing');
 if (!logo.startsWith('<svg')) failures.push('logo.svg is not a valid SVG document');
 
 const placeholderPattern = /REPLACE_|example\.com|TODO|FIXME/;
@@ -59,5 +65,5 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log('Public experience integrity check passed.');
+  console.log('Public experience and GitHub Pages integration checks passed.');
 }

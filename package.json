@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
+    "build:pages": "npm run generate && node scripts/build-pages.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint .",
