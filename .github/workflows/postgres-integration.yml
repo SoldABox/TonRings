@@ -1,0 +1,70 @@
+name: PostgreSQL Integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tonrings
+          POSTGRES_PASSWORD: tonrings
+          POSTGRES_DB: tonrings
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tonrings -d tonrings"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      HOST: 127.0.0.1
+      PORT: '3000'
+      APP_ORIGIN: http://localhost:3000
+      TON_PROOF_DOMAIN: localhost
+      TONCENTER_BASE_URL: https://testnet.toncenter.com/api/v3
+      TON_DIAMONDS_COLLECTION: 0:1111111111111111111111111111111111111111111111111111111111111111
+      RING_COLLECTION_ADDRESS: 0:2222222222222222222222222222222222222222222222222222222222222222
+      DATABASE_URL: postgres://tonrings:tonrings@127.0.0.1:5432/tonrings
+      COLLECTION_SIZE: '256'
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm install --no-audit --no-fund
+      - name: Apply migrations
+        run: npm run db:migrate
+      - name: Verify nonce and session lifecycle
+        run: |
+          node --input-type=module <<'NODE'
+          import { PostgresStore } from './dist/src/persistence/postgres.js';
+          const store = new PostgresStore(process.env.DATABASE_URL);
+          try {
+            const nonce = await store.issueNonce(60);
+            if (!(await store.consumeNonce(nonce.nonce, '0:test-wallet'))) throw new Error('nonce was not consumed');
+            if (await store.consumeNonce(nonce.nonce, '0:test-wallet')) throw new Error('nonce was consumed twice');
+            await store.createSession('0:test-wallet', 'secret-token', 60);
+            if (await store.sessionWallet('secret-token') !== '0:test-wallet') throw new Error('session lookup failed');
+            if (await store.sessionWallet('wrong-token') !== null) throw new Error('wrong token resolved');
+            await store.sql`UPDATE auth_nonces SET expires_at = NOW() - INTERVAL '2 days'`;
+            await store.sql`UPDATE wallet_sessions SET expires_at = NOW() - INTERVAL '2 days'`;
+            const result = await store.cleanupExpiredAuth(86400, 1000);
+            if (result.noncesDeleted < 1 || result.sessionsDeleted < 1) throw new Error('cleanup failed');
+          } finally {
+            await store.close();
+          }
+          NODE
