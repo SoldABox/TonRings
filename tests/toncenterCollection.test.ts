@@ -23,7 +23,8 @@ describe('TonCenterCollectionReader', () => {
     const call = fetchImpl.mock.calls[0];
     expect(call).toBeDefined();
     const init = call?.[1];
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    const requestBody: unknown = JSON.parse(String(init?.body));
+    expect(requestBody).toMatchObject({
       address: collection,
       method: 'get_collection_data',
       stack: [],
