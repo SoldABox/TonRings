@@ -21,6 +21,7 @@
     "validate:launch": "tsx scripts/validate-launch.ts",
     "prepare:launch": "npm run generate && npm run validate:launch",
     "preflight": "npm run check && npm run validate:launch",
+    "mint:readiness": "tsx scripts/check-mint-readiness.ts",
     "mint:prepare:first": "tsx scripts/prepare-first-mint.ts",
     "mint:verify:first": "tsx scripts/verify-first-mint.ts",
     "verify:server": "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>{if(!r.ok)throw new Error('health '+r.status);return r.text()}).then(console.log)\""
