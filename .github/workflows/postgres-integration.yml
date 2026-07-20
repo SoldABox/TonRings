@@ -46,6 +46,7 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - run: npm install --no-audit --no-fund
+      - run: npm run build
       - name: Apply migrations
         run: npm run db:migrate
       - name: Verify nonce and session lifecycle
