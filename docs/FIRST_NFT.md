@@ -1,12 +1,12 @@
 # First TonRings NFT
 
-TonRings can prepare and verify a standards-compatible single-item mint for a collection contract that follows the TON reference NFT collection message layout.
+TonRings prepares and verifies a standards-compatible single-item mint for a collection contract that follows the TON reference NFT collection message layout.
 
-## Important boundary
+## Security boundary
 
-The repository does not deploy a collection contract automatically and never reads a wallet seed phrase. The irreversible transaction must be reviewed and approved by the collection-owner wallet.
+The repository never reads a wallet seed phrase or private key. It prepares an unsigned TonConnect request; the collection-owner wallet must review and approve the irreversible transaction.
 
-The reference mint body used here is:
+The reference mint body is:
 
 ```text
 deploy_nft#00000001
@@ -16,20 +16,15 @@ amount:Coins
 content:^Cell
 ```
 
-The referenced content cell stores the recipient address and the individual metadata key such as `0.json`.
+The referenced content cell stores the recipient address and the individual metadata key, such as `0.json`.
 
-## Before minting
+## Required external inputs
 
-Complete these steps in order:
-
-1. Generate and review the collection.
-2. Upload images and metadata to IPFS.
-3. Deploy a TEP-62-compatible collection contract whose owner is your wallet.
-4. Configure that collection's common metadata prefix to the uploaded metadata base.
-5. Fund the collection-owner wallet with testnet TON.
-6. Prepare NFT #0 as an unsigned TonConnect transaction.
-7. Review and approve it in the owner wallet.
-8. Verify the deployed item owner, collection, and index.
+1. A deployed TEP-62-compatible collection contract owned by your wallet.
+2. Final collection and item metadata uploaded to IPFS.
+3. A funded testnet owner wallet.
+4. The intended recipient wallet.
+5. A TON Center API credential for reliable verification.
 
 Start on testnet. Mainnet transactions are irreversible.
 
@@ -41,26 +36,38 @@ npm run validate:launch
 npm run upload:ipfs
 ```
 
-The IPFS upload writes:
+The upload writes `generated/ipfs.json` and replaces every image CID placeholder.
 
-```text
-generated/ipfs.json
-```
+## Configure the testnet launch
 
-and replaces image placeholders in every metadata record.
-
-## Check readiness
-
-Set only local environment values; never commit them:
+Keep these values local and never commit secrets:
 
 ```bash
-export RING_COLLECTION_ADDRESS="<DEPLOYED_COLLECTION_ADDRESS>"
-export FIRST_NFT_RECIPIENT="<RECIPIENT_WALLET>"
+export MINT_NETWORK="testnet"
+export TONCENTER_BASE_URL="https://testnet.toncenter.com/api/v3"
 export TONCENTER_API_KEY="<TONCENTER_KEY>"
+export RING_COLLECTION_ADDRESS="<DEPLOYED_TESTNET_COLLECTION>"
+export FIRST_NFT_RECIPIENT="<TESTNET_RECIPIENT_WALLET>"
+```
+
+## Readiness gate
+
+```bash
 npm run mint:readiness
 ```
 
-The command returns a percentage and every remaining blocker. It only returns success at 100%.
+The gate now calls the deployed collection's `get_collection_data` method. It checks that:
+
+- the collection contract is reachable;
+- it supports sequential indexes;
+- its on-chain `next_item_index` is exactly `0` for the first NFT;
+- NFT #0 artwork and metadata exist;
+- metadata contains final IPFS URIs;
+- the recipient and collection addresses are valid;
+- the verification credential is configured;
+- the unsigned transaction has been generated.
+
+It returns success only when every check passes.
 
 ## Prepare NFT #0 on testnet
 
@@ -68,9 +75,10 @@ The command returns a percentage and every remaining blocker. It only returns su
 npm run mint:prepare:first -- \
   --collection "$RING_COLLECTION_ADDRESS" \
   --recipient "$FIRST_NFT_RECIPIENT" \
-  --index 0 \
   --network testnet
 ```
+
+Do not guess or manually force index `0`. The command reads the live on-chain `next_item_index` and uses it. Supplying `--index` is optional and acts only as an assertion; preparation fails if it differs from the chain.
 
 Output:
 
@@ -78,35 +86,37 @@ Output:
 generated/first-mint-tonconnect.json
 ```
 
-This file contains an unsigned TonConnect transaction request. It does not contain a private key, seed phrase, or signature.
+The output records:
 
-Review all fields before wallet approval:
+- the verified collection address;
+- the live next item index;
+- the network;
+- the recipient;
+- the resolved metadata URI;
+- the unsigned TonConnect transaction.
 
-- network must be testnet (`-3`) for the first trial;
-- destination must be the deployed collection contract;
-- recipient must be the intended first owner;
-- item index must equal the collection's next item index;
-- metadata key must be `0.json`;
-- attached value must be acceptable for the deployed contract.
+Before approval, verify that the destination is the collection contract, the network is testnet (`-3`), the recipient is correct, and the on-chain index is `0`.
 
-## Mainnet preparation guard
+## Mainnet guard
 
-Mainnet output requires an explicit acknowledgement:
+After a successful testnet mint and verification:
 
 ```bash
+export MINT_NETWORK="mainnet"
+export TONCENTER_BASE_URL="https://toncenter.com/api/v3"
+
 npm run mint:prepare:first -- \
   --collection "$RING_COLLECTION_ADDRESS" \
   --recipient "$FIRST_NFT_RECIPIENT" \
-  --index 0 \
   --network mainnet \
   --confirm-mainnet I_UNDERSTAND
 ```
 
-This still produces only an unsigned request. The wallet owner must approve it.
+This still creates only an unsigned request. The wallet owner must approve it.
 
-## Verify after approval
+## Verify after wallet approval
 
-After the transaction succeeds, obtain the NFT item address from the collection or explorer and run:
+After the item appears on-chain, obtain its item address and run:
 
 ```bash
 npm run mint:verify:first -- \
@@ -116,22 +126,17 @@ npm run mint:verify:first -- \
   --index 0
 ```
 
-Verification checks:
+Verification checks the exact item address, collection, current owner, and index.
 
-- exact item address returned by TON Center;
-- exact collection address;
-- exact current owner;
-- exact NFT index.
+## Definition of complete
 
-## When NFT #0 is considered sent
+NFT #0 is considered sent only when:
 
-NFT #0 is sent only after all of the following are true:
-
-- the collection deployment transaction succeeded;
-- the collection reports index `0` as deployed;
-- the NFT item contract is active;
+- the collection transaction succeeds;
+- `get_collection_data` advances from index `0` to `1`;
+- the item contract is active;
 - the item reports the intended recipient as owner;
 - the item reports the expected collection and index;
-- the metadata resolves from IPFS.
+- the item metadata resolves from IPFS.
 
-Preparing JSON or generating artwork is not minting. A wallet-approved on-chain transaction is required.
+Generated artwork or transaction JSON alone is not a mint. A wallet-approved on-chain transaction is required.
