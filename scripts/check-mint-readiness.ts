@@ -58,13 +58,13 @@ checks.push({
 });
 
 let onChainNextItemIndex: number | null = null;
-if (validAddress(collectionAddress)) {
+if (collectionAddress && validAddress(collectionAddress)) {
   try {
     const reader = new TonCenterCollectionReader({
       baseUrl: process.env.TONCENTER_BASE_URL ?? defaultTonCenterBase,
       apiKey: process.env.TONCENTER_API_KEY,
     });
-    const value = await reader.getNextItemIndex(collectionAddress!);
+    const value = await reader.getNextItemIndex(collectionAddress);
     onChainNextItemIndex = Number(value);
     checks.push({
       name: 'collection contract compatibility',
