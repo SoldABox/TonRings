@@ -1,0 +1,69 @@
+name: Setup Doctor
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to inspect
+        required: true
+        default: nft-testnet
+        type: choice
+        options:
+          - nft-testnet
+          - nft-mainnet
+
+permissions:
+  contents: read
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      PINATA_JWT: ${{ secrets.PINATA_JWT }}
+      TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
+      TON_DIAMONDS_COLLECTION: ${{ vars.TON_DIAMONDS_COLLECTION }}
+      RING_COLLECTION_ADDRESS: ${{ vars.RING_COLLECTION_ADDRESS }}
+      FIRST_NFT_RECIPIENT: ${{ vars.FIRST_NFT_RECIPIENT }}
+      TONRINGS_API_BASE: ${{ vars.TONRINGS_API_BASE }}
+
+    steps:
+      - name: Inspect configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          check_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "❌ $name missing" | tee -a "$GITHUB_STEP_SUMMARY"
+              missing=$((missing + 1))
+            else
+              echo "✅ $name configured" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          check_value() {
+            local name="$1" value="$2"
+            if [ -z "$value" ] || [[ "$value" == *REPLACE* ]]; then
+              echo "❌ $name missing" | tee -a "$GITHUB_STEP_SUMMARY"
+              missing=$((missing + 1))
+            else
+              echo "✅ $name configured: $value" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          echo "# TonRings setup doctor — ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          check_secret PINATA_JWT "$PINATA_JWT"
+          check_secret TONCENTER_API_KEY "$TONCENTER_API_KEY"
+          check_value TON_DIAMONDS_COLLECTION "$TON_DIAMONDS_COLLECTION"
+          check_value RING_COLLECTION_ADDRESS "$RING_COLLECTION_ADDRESS"
+          check_value FIRST_NFT_RECIPIENT "$FIRST_NFT_RECIPIENT"
+          check_value TONRINGS_API_BASE "$TONRINGS_API_BASE"
+
+          echo >> "$GITHUB_STEP_SUMMARY"
+          if [ "$missing" -eq 0 ]; then
+            echo "## Result: configuration complete" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Result: $missing item(s) still required" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
