@@ -16,6 +16,7 @@
     "check": "npm run lint && npm run build && npm test && npm run verify:public",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:migrate:prod": "node dist/scripts/migrate.js",
+    "db:cleanup-auth": "tsx scripts/cleanup-auth.ts",
     "generate": "tsx scripts/generate-collection.ts",
     "upload:ipfs": "tsx scripts/upload-pinata.ts",
     "validate:launch": "tsx scripts/validate-launch.ts",
