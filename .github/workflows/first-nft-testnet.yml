@@ -1,0 +1,133 @@
+name: Prepare First NFT
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network for transaction preparation
+        required: true
+        default: testnet
+        type: choice
+        options:
+          - testnet
+          - mainnet
+      confirm_mainnet:
+        description: Type I_UNDERSTAND for mainnet preparation
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: first-nft-${{ inputs.network }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Generate, upload, validate, and prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.network == 'mainnet' && 'nft-mainnet' || 'nft-testnet' }}
+    env:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      APP_ORIGIN: https://soldabox.github.io
+      TON_PROOF_DOMAIN: soldabox.github.io
+      TONCENTER_BASE_URL: ${{ inputs.network == 'mainnet' && 'https://toncenter.com/api/v3' || 'https://testnet.toncenter.com/api/v3' }}
+      TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
+      TON_DIAMONDS_COLLECTION: ${{ vars.TON_DIAMONDS_COLLECTION }}
+      RING_COLLECTION_ADDRESS: ${{ vars.RING_COLLECTION_ADDRESS }}
+      FIRST_NFT_RECIPIENT: ${{ vars.FIRST_NFT_RECIPIENT }}
+      MINT_NETWORK: ${{ inputs.network }}
+      DATABASE_URL: postgres://tonrings:tonrings@localhost:5432/tonrings
+      PINATA_JWT: ${{ secrets.PINATA_JWT }}
+      IPFS_GATEWAY: https://ipfs.io/ipfs/
+      COLLECTION_SIZE: '256'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Validate protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PINATA_JWT" || { echo 'Missing environment secret PINATA_JWT'; exit 1; }
+          test -n "$TONCENTER_API_KEY" || { echo 'Missing environment secret TONCENTER_API_KEY'; exit 1; }
+          test -n "$RING_COLLECTION_ADDRESS" || { echo 'Missing environment variable RING_COLLECTION_ADDRESS'; exit 1; }
+          test -n "$FIRST_NFT_RECIPIENT" || { echo 'Missing environment variable FIRST_NFT_RECIPIENT'; exit 1; }
+          test -n "$TON_DIAMONDS_COLLECTION" || { echo 'Missing environment variable TON_DIAMONDS_COLLECTION'; exit 1; }
+          if [ "${{ inputs.network }}" = mainnet ] && [ "${{ inputs.confirm_mainnet }}" != I_UNDERSTAND ]; then
+            echo 'Mainnet preparation requires confirm_mainnet=I_UNDERSTAND'
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify repository
+        run: npm run check
+
+      - name: Generate deterministic collection
+        run: npm run generate
+
+      - name: Validate generated launch assets
+        run: npm run validate:launch
+
+      - name: Upload images and metadata to IPFS
+        run: npm run upload:ipfs
+
+      - name: Prepare unsigned first NFT transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --collection "$RING_COLLECTION_ADDRESS"
+            --recipient "$FIRST_NFT_RECIPIENT"
+            --network "${{ inputs.network }}"
+          )
+          if [ "${{ inputs.network }}" = mainnet ]; then
+            args+=(--confirm-mainnet I_UNDERSTAND)
+          fi
+          npm run mint:prepare:first -- "${args[@]}"
+
+      - name: Require 100 percent readiness
+        run: npm run mint:readiness | tee generated/mint-readiness.json
+
+      - name: Create review summary
+        shell: bash
+        run: |
+          {
+            echo '# First NFT preparation complete'
+            echo
+            echo "- Network: ${{ inputs.network }}"
+            echo "- Collection: $RING_COLLECTION_ADDRESS"
+            echo "- Recipient: $FIRST_NFT_RECIPIENT"
+            echo '- Readiness: 100% required'
+            echo '- Signing: not performed; wallet approval remains required'
+            echo
+            echo 'Download the `first-nft-preparation` artifact and review every transaction field before approval.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload preparation artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: first-nft-preparation-${{ inputs.network }}-${{ github.run_number }}
+          path: |
+            generated/first-mint-tonconnect.json
+            generated/mint-readiness.json
+            generated/ipfs.json
+            generated/metadata/0.json
+            generated/images/0.svg
+            generated/manifest.json
+            generated/report.json
+          if-no-files-found: error
+          retention-days: 30
