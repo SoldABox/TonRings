@@ -1,6 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { Address } from '@ton/core';
+import { TonCenterCollectionReader } from '../src/ton/toncenterCollection.js';
 
 interface Check {
   name: string;
@@ -27,7 +28,14 @@ function validAddress(value: string | undefined): boolean {
   }
 }
 
+const collectionAddress = process.env.RING_COLLECTION_ADDRESS;
+const recipientAddress = process.env.FIRST_NFT_RECIPIENT;
+const network = process.env.MINT_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+const defaultTonCenterBase = network === 'mainnet'
+  ? 'https://toncenter.com/api/v3'
+  : 'https://testnet.toncenter.com/api/v3';
 const checks: Check[] = [];
+
 checks.push({
   name: 'generated metadata #0',
   passed: await readable('generated/metadata/0.json'),
@@ -39,15 +47,61 @@ checks.push({
   detail: 'generated/images/0.svg must exist',
 });
 checks.push({
-  name: 'deployed collection address',
-  passed: validAddress(process.env.RING_COLLECTION_ADDRESS),
-  detail: 'RING_COLLECTION_ADDRESS must be the deployed collection contract',
+  name: 'collection address syntax',
+  passed: validAddress(collectionAddress),
+  detail: 'RING_COLLECTION_ADDRESS must be a valid deployed collection address',
 });
 checks.push({
   name: 'recipient wallet',
-  passed: validAddress(process.env.FIRST_NFT_RECIPIENT),
+  passed: validAddress(recipientAddress),
   detail: 'FIRST_NFT_RECIPIENT must be a valid TON wallet address',
 });
+
+let onChainNextItemIndex: number | null = null;
+if (validAddress(collectionAddress)) {
+  try {
+    const reader = new TonCenterCollectionReader({
+      baseUrl: process.env.TONCENTER_BASE_URL ?? defaultTonCenterBase,
+      apiKey: process.env.TONCENTER_API_KEY,
+    });
+    const value = await reader.getNextItemIndex(collectionAddress!);
+    onChainNextItemIndex = Number(value);
+    checks.push({
+      name: 'collection contract compatibility',
+      passed: true,
+      detail: `get_collection_data succeeded; next item index is ${onChainNextItemIndex}`,
+    });
+    checks.push({
+      name: 'first NFT index available',
+      passed: onChainNextItemIndex === 0,
+      detail: onChainNextItemIndex === 0
+        ? 'Collection is ready to mint NFT #0'
+        : `Collection next index is ${onChainNextItemIndex}; NFT #0 is no longer available`,
+    });
+  } catch (error) {
+    checks.push({
+      name: 'collection contract compatibility',
+      passed: false,
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    checks.push({
+      name: 'first NFT index available',
+      passed: false,
+      detail: 'Could not confirm on-chain next item index',
+    });
+  }
+} else {
+  checks.push({
+    name: 'collection contract compatibility',
+    passed: false,
+    detail: 'A valid collection address is required before an on-chain check',
+  });
+  checks.push({
+    name: 'first NFT index available',
+    passed: false,
+    detail: 'Could not confirm on-chain next item index',
+  });
+}
 
 let ipfsReady = false;
 let metadataBase = '';
@@ -89,7 +143,7 @@ checks.push({
 checks.push({
   name: 'TON Center verification credential',
   passed: Boolean(process.env.TONCENTER_API_KEY && !process.env.TONCENTER_API_KEY.includes('REPLACE')),
-  detail: 'Required for reliable post-mint verification',
+  detail: 'Required for reliable collection and post-mint verification',
 });
 checks.push({
   name: 'unsigned wallet transaction',
@@ -102,6 +156,8 @@ const precision = Math.round((passed / checks.length) * 100);
 const result = {
   ready: passed === checks.length,
   precision,
+  network,
+  onChainNextItemIndex,
   metadataBase: metadataBase || null,
   checks,
 };
