@@ -57,6 +57,9 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
+      - name: Use npm 11 to resolve Vitest 4 peer dependencies
+        run: npm install --global npm@11.21.3 --no-audit --no-fund
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
