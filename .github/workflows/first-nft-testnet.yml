@@ -70,6 +70,9 @@ jobs:
             exit 1
           fi
 
+      - name: Use npm 11 to resolve Vitest 4 peer dependencies
+        run: npm install --global npm@11.21.3 --no-audit --no-fund
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
