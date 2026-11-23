@@ -27,16 +27,18 @@
     "mint:verify:first": "tsx scripts/verify-first-mint.ts",
     "verify:server": "node -e \"fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>{if(!r.ok)throw new Error('health '+r.status);return r.text()}).then(console.log)\""
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
     "@fastify/rate-limit": "^11.1.0",
-    "@fastify/static": "^8.2.0",
+    "@fastify/static": "^10.1.5",
     "@ton/core": "^0.63.1",
     "fastify": "^5.4.0",
     "postgres": "^3.4.7",
     "tweetnacl": "^1.0.3",
-    "zod": "^3.25.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
