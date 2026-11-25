@@ -34,11 +34,23 @@ jobs:
           node --version
           npm --version
 
+      - name: Use npm 11 to resolve Vitest 4 peer dependencies
+        run: npm install --global npm@11.21.3 --no-audit --no-fund
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
       - name: Lint source
-        run: npm run lint
+        run: npm run lint 2>&1 | tee lint-report.txt
+
+      - name: Upload lint diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-${{ github.sha }}
+          path: lint-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Build TypeScript
         run: npm run build

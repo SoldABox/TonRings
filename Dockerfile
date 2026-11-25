@@ -4,6 +4,7 @@ WORKDIR /app
 ENV NODE_ENV=development
 
 COPY package.json ./
+RUN npm install --global npm@11.21.3 --no-audit --no-fund
 RUN npm install --no-audit --no-fund
 
 COPY tsconfig.json vitest.config.ts eslint.config.js ./

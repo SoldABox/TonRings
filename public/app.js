@@ -1,6 +1,8 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+const config = window.TONRINGS_CONFIG ?? {};
+const apiBase = typeof config.apiBase === 'string' ? config.apiBase.replace(/\/$/, '') : '';
 const statusChip = $('#statusChip');
 const statusText = $('#statusText');
 const toast = $('#toast');
@@ -8,12 +10,18 @@ const ringStage = $('#ringStage');
 const miniStage = $('#miniStage');
 const previewName = $('#previewName');
 const saveMessage = $('#saveMessage');
+const mintButton = $('#mintRing');
+const mintMessage = $('#mintMessage');
 
 const labels = {
   material: { gold: 'Royal Gold', platinum: 'Platinum', obsidian: 'Obsidian' },
   gem: { diamond: 'Diamond', sapphire: 'Sapphire', emerald: 'Emerald' },
   aura: { royal: 'Royal', victory: 'Victory', eternal: 'Eternal' },
 };
+
+function apiUrl(path) {
+  return `${apiBase}${path}`;
+}
 
 function showToast(message) {
   toast.textContent = message;
@@ -24,18 +32,25 @@ function showToast(message) {
 
 async function checkStatus() {
   statusChip.classList.remove('ready', 'offline');
+
+  if (!apiBase) {
+    statusChip.classList.add('ready');
+    statusText.textContent = 'Showcase online';
+    return;
+  }
+
   statusText.textContent = 'Checking system';
   try {
     const [health, ready] = await Promise.all([
-      fetch('/health', { cache: 'no-store' }),
-      fetch('/ready', { cache: 'no-store' }),
+      fetch(apiUrl('/health'), { cache: 'no-store' }),
+      fetch(apiUrl('/ready'), { cache: 'no-store' }),
     ]);
     if (!health.ok) throw new Error('unhealthy');
     statusChip.classList.add(ready.ok ? 'ready' : 'offline');
-    statusText.textContent = ready.ok ? 'System ready' : 'Preview mode';
+    statusText.textContent = ready.ok ? 'System ready' : 'API setup pending';
   } catch {
     statusChip.classList.add('offline');
-    statusText.textContent = 'Preview mode';
+    statusText.textContent = 'Showcase online';
   }
 }
 
@@ -78,7 +93,7 @@ $('#randomize')?.addEventListener('click', () => {
   showToast('A new combination appeared');
 });
 
-$('#saveLook')?.addEventListener('click', async () => {
+$('#saveLook')?.addEventListener('click', () => {
   const look = {
     material: labels.material[miniStage.dataset.material],
     gem: labels.gem[miniStage.dataset.gem],
@@ -104,6 +119,63 @@ function restoreLook() {
   } catch {
     localStorage.removeItem('tonrings-preview');
   }
+}
+
+function initializeWallet() {
+  if (!window.TON_CONNECT_UI?.TonConnectUI) {
+    mintMessage.textContent = 'Wallet connector failed to load.';
+    return;
+  }
+
+  const manifestUrl = new URL('tonconnect-manifest.json', window.location.href).toString();
+  const tonConnectUi = new window.TON_CONNECT_UI.TonConnectUI({
+    manifestUrl,
+    buttonRootId: 'ton-connect',
+  });
+
+  tonConnectUi.onStatusChange(wallet => {
+    mintButton.disabled = !wallet || !apiBase;
+    if (!wallet) {
+      mintButton.textContent = 'Connect wallet to mint';
+      mintMessage.textContent = apiBase
+        ? 'Connect the collection-owner wallet to prepare the next NFT.'
+        : 'Backend deployment is required before minting.';
+      return;
+    }
+    mintButton.textContent = apiBase ? 'Mint next ring' : 'Backend setup pending';
+    mintMessage.textContent = apiBase
+      ? 'The backend will verify the live collection index before wallet approval.'
+      : 'Wallet connected. Configure TONRINGS_API_BASE to enable minting.';
+  });
+
+  mintButton?.addEventListener('click', async () => {
+    const wallet = tonConnectUi.wallet;
+    if (!wallet || !apiBase) return;
+
+    mintButton.disabled = true;
+    mintMessage.textContent = 'Checking live collection state…';
+    try {
+      const response = await fetch(apiUrl('/api/mint/prepare'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ recipientAddress: wallet.account.address }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `Mint preparation failed (${response.status})`);
+
+      mintMessage.textContent = `Review NFT #${body.itemIndex} in your wallet.`;
+      const result = await tonConnectUi.sendTransaction(body.transaction);
+      localStorage.setItem('tonrings-last-mint-boc', result.boc);
+      mintMessage.textContent = `NFT #${body.itemIndex} submitted. Waiting for on-chain confirmation.`;
+      showToast('Mint transaction submitted');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Mint transaction failed';
+      mintMessage.textContent = message;
+      showToast(message);
+    } finally {
+      mintButton.disabled = !tonConnectUi.wallet || !apiBase;
+    }
+  });
 }
 
 const observer = new IntersectionObserver(entries => {
@@ -136,3 +208,4 @@ $$('[data-count]').forEach(element => countObserver.observe(element));
 
 restoreLook();
 checkStatus();
+initializeWallet();

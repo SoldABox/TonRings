@@ -1,6 +1,7 @@
-import { access, readFile, readdir } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { loadEnv, type AppEnv } from '../src/config/env.js';
+import { validateGeneratedCollection } from '../src/collection/validateGenerated.js';
 
 const failures: string[] = [];
 const warnings: string[] = [];
@@ -12,7 +13,13 @@ try {
   failures.push(`Environment invalid: ${String(error)}`);
 }
 
-for (const path of ['generated/manifest.json', 'generated/images', 'generated/metadata']) {
+for (const path of [
+  'generated/manifest.json',
+  'generated/report.json',
+  'generated/gallery.html',
+  'generated/images',
+  'generated/metadata',
+]) {
   try {
     await access(path, constants.R_OK);
   } catch {
@@ -30,32 +37,18 @@ if (env) {
   if (!env.PINATA_JWT) warnings.push('PINATA_JWT missing: generation works, upload is blocked');
 }
 
-try {
-  const manifest = JSON.parse(await readFile('generated/manifest.json', 'utf8')) as {
-    size?: number;
-  };
-  if (!Number.isSafeInteger(manifest.size) || (manifest.size ?? 0) < 1) {
-    failures.push('Manifest size is invalid');
-  } else {
-    const [images, metadata] = await Promise.all([
-      readdir('generated/images'),
-      readdir('generated/metadata'),
-    ]);
-    if (images.length !== manifest.size) {
-      failures.push(`Image count ${images.length} != manifest size ${manifest.size}`);
-    }
-    if (metadata.length !== manifest.size) {
-      failures.push(`Metadata count ${metadata.length} != manifest size ${manifest.size}`);
-    }
+if (failures.length === 0) {
+  try {
+    failures.push(...(await validateGeneratedCollection()));
+  } catch (error) {
+    failures.push(`Generated collection validation failed: ${String(error)}`);
   }
-} catch (error) {
-  failures.push(`Generated collection validation failed: ${String(error)}`);
 }
 
 for (const warning of warnings) console.warn(`WARNING: ${warning}`);
-if (failures.length) {
+if (failures.length > 0) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log('Launch validation passed.');
+  console.log('Launch validation passed: every generated ring and metadata record is consistent.');
 }

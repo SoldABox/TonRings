@@ -11,6 +11,11 @@ interface DatabaseError {
   constraint_name?: string;
 }
 
+export interface CleanupResult {
+  noncesDeleted: number;
+  sessionsDeleted: number;
+}
+
 function conflictFromError(error: unknown): CreateEnchantmentResult | null {
   if (!error || typeof error !== 'object') return null;
   const dbError = error as DatabaseError;
@@ -78,6 +83,49 @@ export class PostgresStore implements EnchantmentRepository {
       SELECT wallet_address FROM wallet_sessions
       WHERE token_hash = ${hash} AND revoked_at IS NULL AND expires_at > NOW()`;
     return row?.wallet_address ?? null;
+  }
+
+  async cleanupExpiredAuth(retentionSeconds = 86_400, batchSize = 1_000): Promise<CleanupResult> {
+    if (!Number.isSafeInteger(retentionSeconds) || retentionSeconds < 0) {
+      throw new Error('retentionSeconds must be a non-negative safe integer');
+    }
+    if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 10_000) {
+      throw new Error('batchSize must be between 1 and 10000');
+    }
+
+    return this.sql.begin(async transaction => {
+      const nonces = await transaction`
+        WITH candidates AS (
+          SELECT nonce FROM auth_nonces
+          WHERE expires_at < NOW() - (${retentionSeconds} * INTERVAL '1 second')
+          ORDER BY expires_at
+          LIMIT ${batchSize}
+          FOR UPDATE SKIP LOCKED
+        )
+        DELETE FROM auth_nonces target
+        USING candidates
+        WHERE target.nonce = candidates.nonce
+        RETURNING target.nonce`;
+
+      const sessions = await transaction`
+        WITH candidates AS (
+          SELECT id FROM wallet_sessions
+          WHERE expires_at < NOW() - (${retentionSeconds} * INTERVAL '1 second')
+             OR revoked_at < NOW() - (${retentionSeconds} * INTERVAL '1 second')
+          ORDER BY expires_at
+          LIMIT ${batchSize}
+          FOR UPDATE SKIP LOCKED
+        )
+        DELETE FROM wallet_sessions target
+        USING candidates
+        WHERE target.id = candidates.id
+        RETURNING target.id`;
+
+      return {
+        noncesDeleted: nonces.length,
+        sessionsDeleted: sessions.length,
+      };
+    });
   }
 
   async create(record: EnchantmentRecord): Promise<CreateEnchantmentResult> {
